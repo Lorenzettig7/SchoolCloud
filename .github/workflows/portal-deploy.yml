@@ -1,16 +1,3 @@
-name: Deploy Portal
-on:
-  push:
-    branches: [ "main" ]
-    paths:
-      - "apps/portal/**"
-      - ".github/workflows/portal-deploy.yml"
-  workflow_dispatch: {}
-
-permissions:
-  id-token: write
-  contents: read
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -33,7 +20,19 @@ jobs:
           set -euxo pipefail
           aws --version
           aws sts get-caller-identity
-          aws s3api head-bucket --bucket "${PORTAL_BUCKET}" || aws s3 ls "s3://${PORTAL_BUCKET}" || true
+          aws s3api get-bucket-location --bucket "${PORTAL_BUCKET}" || true
+          aws s3 ls "s3://${PORTAL_BUCKET}" || true
+
+      - name: Show bucket policy
+        run: |
+          aws s3api get-bucket-policy --bucket "${PORTAL_BUCKET}" --query Policy --output text | jq -r . || echo "No bucket policy"
+
+      - name: Permission probe (PUT/DELETE)
+        run: |
+          set -euxo pipefail
+          echo "probe" > /tmp/_probe.txt
+          aws s3 cp /tmp/_probe.txt "s3://${PORTAL_BUCKET}/_probe.txt"
+          aws s3 rm "s3://${PORTAL_BUCKET}/_probe.txt"
 
       - name: Ensure placeholder content
         run: |
