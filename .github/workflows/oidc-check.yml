@@ -10,6 +10,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::<YOUR-ACCOUNT-ID>:role/DeployRole-Dev
+          role-to-assume: arn:aws:iam::713881788173:role/DeployRole-Dev
           aws-region: us-east-1
       - run: aws sts get-caller-identity
