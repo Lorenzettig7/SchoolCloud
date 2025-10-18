@@ -1,0 +1,46 @@
+name: OIDC + S3 Probe
+on:
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-1
+      PORTAL_BUCKET: schoolcloud-portal-us-east-1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::713881788173:role/DeployRole-Dev
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Identity check (must show your AWS account/role)
+        run: |
+          set -euxo pipefail
+          aws --version
+          aws sts get-caller-identity
+
+      - name: S3 list + policy
+        run: |
+          set -euxo pipefail
+          AWS_PAGER=""
+          aws s3 ls "s3://${PORTAL_BUCKET}" || true
+          sudo apt-get update -y >/dev/null 2>&1 || true
+          sudo apt-get install -y jq >/dev/null 2>&1 || true
+          aws s3api get-bucket-location --bucket "${PORTAL_BUCKET}" || true
+          aws s3api get-bucket-policy --bucket "${PORTAL_BUCKET}" --query Policy --output text | jq -r . || echo "No bucket policy"
+
+      - name: PUT/DELETE probe (pinpoints AccessDenied)
+        run: |
+          set -euxo pipefail
+          echo "probe $(date -u +%FT%TZ)" > /tmp/_probe.txt
+          AWS_PAGER=""
+          aws s3 cp /tmp/_probe.txt "s3://${PORTAL_BUCKET}/_probe.txt" --debug
+          aws s3 rm "s3://${PORTAL_BUCKET}/_probe.txt" --debug
