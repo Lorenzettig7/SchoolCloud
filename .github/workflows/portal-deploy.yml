@@ -16,8 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       AWS_REGION: us-east-1
-      PORTAL_BUCKET: <paste portal_bucket>
-      DIST_ID: <paste cloudfront_distid>
+      PORTAL_BUCKET: schoolcloud-portal-us-east-1dl9bfqj0m9smw.cloudfront.net
+      DIST_ID: E1XFBIV7FJ6P9P
     steps:
       - uses: actions/checkout@v4
 
