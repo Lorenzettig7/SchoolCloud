@@ -16,7 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       AWS_REGION: us-east-1
-      PORTAL_BUCKET: schoolcloud-portal-us-east-1dl9bfqj0m9smw.cloudfront.net
+      PORTAL_BUCKET: schoolcloud-portal-us-east-1
+      PORTAL_DOMAIN: dl9bfqj0m9smw.cloudfront.net
       DIST_ID: E1XFBIV7FJ6P9P
     steps:
       - uses: actions/checkout@v4
@@ -27,12 +28,15 @@ jobs:
           role-to-assume: arn:aws:iam::713881788173:role/DeployRole-Dev
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Sanity check identity
+        run: aws sts get-caller-identity
+
       - name: Ensure placeholder content
         run: |
           mkdir -p apps/portal
           echo '<!doctype html><html><body><h1>School Cloud Portal</h1></body></html>' > apps/portal/index.html
 
-      - name: Sync to S3
+      - name: Upload to S3
         run: aws s3 sync apps/portal "s3://${{ env.PORTAL_BUCKET }}/" --delete
 
       - name: Invalidate CloudFront
