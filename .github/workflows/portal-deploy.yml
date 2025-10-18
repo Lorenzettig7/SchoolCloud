@@ -19,6 +19,7 @@ jobs:
       AWS_REGION: us-east-1
       PORTAL_BUCKET: schoolcloud-portal-us-east-1
       DIST_ID: E1XFBIV7FJ6P9P
+
     steps:
       - uses: actions/checkout@v4
 
@@ -28,12 +29,27 @@ jobs:
           role-to-assume: arn:aws:iam::713881788173:role/DeployRole-Dev
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Sanity check
+      - name: Sanity check identity & tools
         run: |
           set -euxo pipefail
           aws --version
           aws sts get-caller-identity
+
+      - name: Inspect S3 (region, policy, listing)
+        run: |
+          set -euxo pipefail
+          aws s3api get-bucket-location --bucket "${PORTAL_BUCKET}" || true
           aws s3 ls "s3://${PORTAL_BUCKET}" || true
+          sudo apt-get update -y >/dev/null 2>&1 || true
+          sudo apt-get install -y jq >/dev/null 2>&1 || true
+          aws s3api get-bucket-policy --bucket "${PORTAL_BUCKET}" --query Policy --output text | jq -r . || echo "No bucket policy"
+
+      - name: Permission probe (PUT then DELETE)
+        run: |
+          set -euxo pipefail
+          echo "probe $(date -u +%FT%TZ)" > /tmp/_probe.txt
+          aws s3 cp /tmp/_probe.txt "s3://${PORTAL_BUCKET}/_probe.txt"
+          aws s3 rm "s3://${PORTAL_BUCKET}/_probe.txt"
 
       - name: Ensure placeholder content
         run: |
