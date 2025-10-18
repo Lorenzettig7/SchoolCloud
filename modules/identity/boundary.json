@@ -1,0 +1,35 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "NoPrivilegeEscalation",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreatePolicyVersion",
+        "iam:SetDefaultPolicyVersion",
+        "iam:PassRole",
+        "iam:AttachRolePolicy",
+        "iam:PutRolePolicy"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "TagGuard",
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": { "aws:ResourceTag/Project": "schoolcloud" }
+      }
+    },
+    {
+      "Sid": "RestrictKMS",
+      "Effect": "Deny",
+      "Action": ["kms:*"],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": { "kms:ResourceAliases": "alias/schoolcloud/*" }
+      }
+    }
+  ]
+}
