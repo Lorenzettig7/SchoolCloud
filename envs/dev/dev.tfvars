@@ -1,6 +1,4 @@
-project_name    = "schoolcloud"
+project_name    = "schoolcloud-dev"
 github_repo_sub = "repo:Lorenzettig7/SchoolCloud:ref:refs/heads/main"
-project_name     = "schoolcloud-dev"  # or prod later
-portal_fqdn      = "portal.secureschoolcloud.org"
-portal_cert_arn  = "<PASTE THE ARN FROM envs/global OUTPUT>"
-github_repo_sub  = "repo:Lorenzettig7/SchoolCloud:ref:refs/heads/main"
+portal_fqdn     = "portal.secureschoolcloud.org"
+portal_cert_arn = "arn:aws:acm:us-east-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"

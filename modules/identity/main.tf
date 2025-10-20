@@ -1,5 +1,5 @@
 
-variable "project"  { type = string }
+variable "project" { type = string }
 variable "repo_sub" { type = string } # repo:Owner/Repo:ref:refs/heads/main
 
 resource "aws_iam_openid_connect_provider" "github" {
@@ -18,9 +18,9 @@ resource "aws_iam_role" "deploy_dev" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
-      Effect = "Allow",
+      Effect    = "Allow",
       Principal = { Federated = aws_iam_openid_connect_provider.github.arn },
-      Action   = "sts:AssumeRoleWithWebIdentity",
+      Action    = "sts:AssumeRoleWithWebIdentity",
       Condition = {
         StringEquals = { "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com" },
         StringLike   = { "token.actions.githubusercontent.com:sub" = var.repo_sub }

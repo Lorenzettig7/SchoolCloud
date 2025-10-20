@@ -1,9 +1,5 @@
-variable "portal_fqdn" {
-  description = "Public hostname for the portal (e.g., portal.secureschoolcloud.org)"
-  type        = string
-}
-
-variable "portal_cert_arn" {
-  description = "ACM cert ARN (in us-east-1) for the portal hostname"
-  type        = string
-}
+# modules/edge_portal/variables.tf
+variable "project" { type = string }
+variable "region" { type = string }
+variable "portal_fqdn" { type = string }
+variable "portal_cert_arn" { type = string }

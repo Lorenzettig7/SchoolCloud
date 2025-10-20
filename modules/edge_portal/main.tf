@@ -1,5 +1,4 @@
-variable "project" { type = string }
-variable "region"  { type = string }
+# modules/edge_portal/main.tf
 
 locals {
   bucket_name = "${var.project}-portal-${var.region}"
@@ -39,12 +38,13 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "portal" {
 resource "aws_wafv2_web_acl" "portal" {
   name        = local.waf_name
   description = "Basic WAF for ${var.project} portal"
-  scope       = "CLOUDFRONT"
+  scope       = "CLOUDFRONT" # global (us-east-1 endpoint)
 
   default_action {
     allow {}
   }
 
+  # Example managed rule group (you can add more below with unique priority)
   rule {
     name     = "AWSManagedRulesCommonRuleSet"
     priority = 1
@@ -75,6 +75,7 @@ resource "aws_wafv2_web_acl" "portal" {
 }
 
 # ----- CloudFront (OAC to private S3) -----
+# NOTE: aws_cloudfront_origin_access_control.oac is defined in oac_and_policy.tf
 resource "aws_cloudfront_distribution" "portal" {
   enabled             = true
   comment             = "${var.project} portal"
@@ -100,15 +101,16 @@ resource "aws_cloudfront_distribution" "portal" {
   }
 
   restrictions {
-    geo_restriction { restriction_type = "none" }
+    geo_restriction {
+      restriction_type = "none"
+    }
   }
 
   price_class = "PriceClass_100"
 
-  # ➜ Add your custom hostname here
+  # Your custom hostname + ACM (in us-east-1)
   aliases = [var.portal_fqdn]
 
-  # ➜ Use your ACM cert (in us-east-1)
   viewer_certificate {
     acm_certificate_arn      = var.portal_cert_arn
     ssl_support_method       = "sni-only"
@@ -118,15 +120,10 @@ resource "aws_cloudfront_distribution" "portal" {
   web_acl_id = aws_wafv2_web_acl.portal.arn
 }
 
-
 # ----- Outputs -----
-output "portal_bucket"      { value = aws_s3_bucket.portal.id }
-output "distribution_id"    { value = aws_cloudfront_distribution.portal.id }
-output "portal_domain"      { value = aws_cloudfront_distribution.portal.domain_name }
-output "cf_domain_name" {
-  value = aws_cloudfront_distribution.portal.domain_name
-}
-
+output "portal_bucket"   { value = aws_s3_bucket.portal.id }
+output "distribution_id" { value = aws_cloudfront_distribution.portal.id }
+output "portal_domain"   { value = aws_cloudfront_distribution.portal.domain_name }
 output "cf_hosted_zone_id" {
   value = aws_cloudfront_distribution.portal.hosted_zone_id
 }

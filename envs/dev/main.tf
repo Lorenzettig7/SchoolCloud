@@ -9,7 +9,9 @@ module "identity" {
   repo_sub = var.github_repo_sub
 }
 module "edge_portal" {
-  source  = "../../modules/edge_portal"
-  project = var.project_name
-  region  = "us-east-1"
+  source          = "../../modules/edge_portal"
+  project         = var.project_name
+  region          = "us-east-1"
+  portal_fqdn     = var.portal_fqdn
+  portal_cert_arn = var.portal_cert_arn
 }
