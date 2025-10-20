@@ -1,4 +1,7 @@
-variable "project" { type = string }
+variable "project" {
+  type    = string
+  default = "schoolcloud"
+}
 
 resource "aws_kms_key" "default" {
   description             = "KMS CMK for ${var.project}"

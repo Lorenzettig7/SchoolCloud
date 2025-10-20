@@ -75,14 +75,6 @@ resource "aws_wafv2_web_acl" "portal" {
 }
 
 # ----- CloudFront (OAC to private S3) -----
-resource "aws_cloudfront_origin_access_control" "oac" {
-  name                              = "${var.project}-oac"
-  description                       = "OAC for ${var.project} portal"
-  origin_access_control_origin_type = "s3"
-  signing_behavior                  = "always"
-  signing_protocol                  = "sigv4"
-}
-
 resource "aws_cloudfront_distribution" "portal" {
   enabled             = true
   comment             = "${var.project} portal"
@@ -103,55 +95,38 @@ resource "aws_cloudfront_distribution" "portal" {
 
     forwarded_values {
       query_string = false
-      cookies {
-        forward = "none"
-      }
+      cookies { forward = "none" }
     }
   }
 
   restrictions {
-    geo_restriction {
-      restriction_type = "none"
-    }
+    geo_restriction { restriction_type = "none" }
   }
 
   price_class = "PriceClass_100"
 
+  # ➜ Add your custom hostname here
+  aliases = [var.portal_fqdn]
+
+  # ➜ Use your ACM cert (in us-east-1)
   viewer_certificate {
-    cloudfront_default_certificate = true
+    acm_certificate_arn      = var.portal_cert_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 
   web_acl_id = aws_wafv2_web_acl.portal.arn
 }
 
-# Allow CloudFront to read from the bucket (OAC constraint)
-data "aws_iam_policy_document" "portal_policy" {
-  statement {
-    sid     = "AllowCloudFrontServicePrincipalRead"
-    effect  = "Allow"
-    actions = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.portal.arn}/*"]
-
-    principals {
-      type        = "Service"
-      identifiers = ["cloudfront.amazonaws.com"]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "AWS:SourceArn"
-      values   = [aws_cloudfront_distribution.portal.arn]
-    }
-  }
-}
-
-resource "aws_s3_bucket_policy" "portal" {
-  bucket = aws_s3_bucket.portal.id
-  policy = data.aws_iam_policy_document.portal_policy.json
-  depends_on = [aws_cloudfront_distribution.portal]
-}
 
 # ----- Outputs -----
 output "portal_bucket"      { value = aws_s3_bucket.portal.id }
 output "distribution_id"    { value = aws_cloudfront_distribution.portal.id }
 output "portal_domain"      { value = aws_cloudfront_distribution.portal.domain_name }
+output "cf_domain_name" {
+  value = aws_cloudfront_distribution.portal.domain_name
+}
+
+output "cf_hosted_zone_id" {
+  value = aws_cloudfront_distribution.portal.hosted_zone_id
+}
