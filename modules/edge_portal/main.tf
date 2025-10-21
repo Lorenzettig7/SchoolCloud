@@ -77,9 +77,13 @@ resource "aws_wafv2_web_acl" "portal" {
 # ----- CloudFront (OAC to private S3) -----
 # NOTE: aws_cloudfront_origin_access_control.oac is defined in oac_and_policy.tf
 resource "aws_cloudfront_distribution" "portal" {
-  enabled             = true
-  comment             = "${var.project} portal"
-  default_root_object = "index.html"
+  viewer_certificate {
+    acm_certificate_arn = "arn:aws:acm:us-east-1:713881788173:certificate/ea0beb70-e153-4b3c-983a-201945807a2e"
+    ssl_support_method   = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
+  }
+}
+
 
   origin {
     domain_name              = aws_s3_bucket.portal.bucket_regional_domain_name

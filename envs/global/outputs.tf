@@ -3,5 +3,5 @@ output "portal_cert_arn" {
 }
 
 output "root_zone_id" {
-  value = aws_route53_zone.root.zone_id
+  value = data.aws_route53_zone.root.zone_id
 }
