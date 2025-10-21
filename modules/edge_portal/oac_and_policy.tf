@@ -1,6 +1,6 @@
-resource "aws_cloudfront_origin_access_control" "oac" {
-  name                              = "${var.project}-oac"
-  description                       = "OAC for ${var.project} portal"
+resource "aws_cloudfront_origin_access_control" "portal" {
+  name                              = "portal-oac"
+  description                       = "Origin Access Control for Portal"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"

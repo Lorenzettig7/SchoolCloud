@@ -75,34 +75,32 @@ resource "aws_wafv2_web_acl" "portal" {
 }
 
 # ----- CloudFront (OAC to private S3) -----
-# NOTE: aws_cloudfront_origin_access_control.oac is defined in oac_and_policy.tf
+# --- CloudFront Distribution ---
 resource "aws_cloudfront_distribution" "portal" {
-  viewer_certificate {
-    acm_certificate_arn = "arn:aws:acm:us-east-1:713881788173:certificate/ea0beb70-e153-4b3c-983a-201945807a2e"
-    ssl_support_method   = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
-  }
-}
-
+  enabled             = true
+  default_root_object = "index.html"
 
   origin {
     domain_name              = aws_s3_bucket.portal.bucket_regional_domain_name
-    origin_id                = "s3-${aws_s3_bucket.portal.bucket}"
-    origin_access_control_id = aws_cloudfront_origin_access_control.oac.id
+    origin_id                = "portalS3Origin"
+    origin_access_control_id = aws_cloudfront_origin_access_control.portal.id
   }
 
   default_cache_behavior {
-    target_origin_id       = "s3-${aws_s3_bucket.portal.bucket}"
+    target_origin_id       = "portalS3Origin"
     viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    allowed_methods        = ["GET", "HEAD"]
     cached_methods         = ["GET", "HEAD"]
-    compress               = true
 
     forwarded_values {
       query_string = false
-      cookies { forward = "none" }
+      cookies {
+        forward = "none"
+      }
     }
   }
+
+  price_class = "PriceClass_100"
 
   restrictions {
     geo_restriction {
@@ -110,9 +108,6 @@ resource "aws_cloudfront_distribution" "portal" {
     }
   }
 
-  price_class = "PriceClass_100"
-
-  # Your custom hostname + ACM (in us-east-1)
   aliases = [var.portal_fqdn]
 
   viewer_certificate {
@@ -124,10 +119,20 @@ resource "aws_cloudfront_distribution" "portal" {
   web_acl_id = aws_wafv2_web_acl.portal.arn
 }
 
-# ----- Outputs -----
-output "portal_bucket"   { value = aws_s3_bucket.portal.id }
-output "distribution_id" { value = aws_cloudfront_distribution.portal.id }
-output "portal_domain"   { value = aws_cloudfront_distribution.portal.domain_name }
-output "cf_hosted_zone_id" {
+# --- Outputs for the module ---
+output "portal_bucket_id" {
+  value = aws_s3_bucket.portal.id
+}
+
+output "portal_distribution_id" {
+  value = aws_cloudfront_distribution.portal.id
+}
+
+output "portal_domain_name" {
+  value = aws_cloudfront_distribution.portal.domain_name
+}
+
+output "portal_hosted_zone_id" {
   value = aws_cloudfront_distribution.portal.hosted_zone_id
 }
+
