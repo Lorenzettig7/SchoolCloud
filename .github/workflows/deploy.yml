@@ -5,22 +5,60 @@ on:
   workflow_dispatch:
   push:
     branches: [ main ]
+    # Trigger when source or workflow changes (dist isn't committed)
     paths:
-      - "dist/**"
+      - "src/**"
+      - "public/**"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/deploy.yml"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write     # for OIDC
+      contents: read
+
+    env:
+      AWS_REGION: us-east-1
+      # Set these in repo/organization Variables or Secrets
+      PORTAL_BUCKET: ${{ vars.PORTAL_BUCKET }}         # e.g., schoolcloud-portal-us-east-1dl9bfqj0m9smw
+      CF_DIST_ID:   ${{ vars.CF_DIST_ID }}             # e.g., E3QFAE8UN3CQUW
+      BUILD_DIR:    dist                               # change if your framework outputs differently
+
     steps:
       - uses: actions/checkout@v4
 
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}  # e.g., arn:aws:iam::123456789012:role/DeployRole-Dev
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build site
+        run: npm run build
+        # For different frameworks, swap to the correct build script
+
+      - name: Verify build output
+        run: |
+          test -d "$BUILD_DIR" || { echo "Build output '$BUILD_DIR' not found"; exit 1; }
+          ls -la "$BUILD_DIR"
+
       - name: Sync to S3
         run: |
-          aws s3 sync dist/ s3://schoolcloud-portal-us-east-1/ --delete
+          aws s3 sync "$BUILD_DIR"/ "s3://${PORTAL_BUCKET}/" --delete --exact-timestamps
 
       - name: Invalidate CloudFront cache
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id E3QFAE8UN3CQUW \
+            --distribution-id "${CF_DIST_ID}" \
             --paths "/*"
