@@ -1,0 +1,23 @@
+# .github/workflows/deploy.yml
+name: Deploy Portal
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ "dist/**" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync to S3
+        run: |
+          aws s3 sync dist/ s3://schoolcloud-portal-us-east-1/ --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id E3QFAE8UN3CQUW \
+            --paths "/*"
