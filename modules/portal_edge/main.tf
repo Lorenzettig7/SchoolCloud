@@ -1,22 +1,57 @@
-# WAFv2 (global)
+##############################
+# modules/portal_edge/main.tf
+##############################
+
+# This module assumes an existing private S3 bucket is passed in.
+# Inputs (see modules/portal_edge/variables.tf):
+# - project (string)
+# - portal_fqdn (string)
+# - portal_cert_arn (string)  # ACM cert in us-east-1
+# - s3_bucket_arn (string)    # existing bucket ARN
+# - s3_bucket_domain (string) # existing bucket regional domain (e.g., bucket.s3.us-east-1.amazonaws.com)
+# - root_zone_id (string)     # hosted zone for "portal" record
+
+##############################
+# CloudFront OAC (global)
+##############################
+resource "aws_cloudfront_origin_access_control" "portal" {
+  provider = aws.edge
+
+  name                              = "${var.project}-oac"
+  description                       = "Origin Access Control for ${var.project} portal"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
+##############################
+# WAF (global/CLOUDFRONT)
+##############################
 resource "aws_wafv2_web_acl" "portal" {
   provider    = aws.edge
   name        = "${var.project}-waf"
   description = "Basic WAF for ${var.project} portal"
   scope       = "CLOUDFRONT"
 
-  default_action { allow {} }
+  default_action {
+    allow {}
+  }
 
   rule {
     name     = "AWSManagedRulesCommonRuleSet"
     priority = 1
-    override_action { none {} }
+
+    override_action {
+      none {}
+    }
+
     statement {
       managed_rule_group_statement {
         name        = "AWSManagedRulesCommonRuleSet"
         vendor_name = "AWS"
       }
     }
+
     visibility_config {
       cloudwatch_metrics_enabled = true
       metric_name                = "AWSManagedRulesCommonRuleSet"
@@ -31,20 +66,17 @@ resource "aws_wafv2_web_acl" "portal" {
   }
 }
 
-# OAC for S3 origin
-resource "aws_cloudfront_origin_access_control" "portal" {
-  provider                           = aws.edge
-  name                               = "portal-oac"
-  origin_access_control_origin_type  = "s3"
-  signing_behavior                   = "always"
-  signing_protocol                   = "sigv4"
-}
-
+##############################
 # CloudFront Distribution
+##############################
 resource "aws_cloudfront_distribution" "portal" {
   provider            = aws.edge
   enabled             = true
+  is_ipv6_enabled     = true
   default_root_object = "index.html"
+  price_class         = "PriceClass_100"
+  web_acl_id          = aws_wafv2_web_acl.portal.arn
+  aliases             = [var.portal_fqdn]
 
   origin {
     domain_name              = var.s3_bucket_domain
@@ -60,70 +92,36 @@ resource "aws_cloudfront_distribution" "portal" {
 
     forwarded_values {
       query_string = false
-      cookies { forward = "none" }
+      cookies {
+        forward = "none"
+      }
     }
   }
 
-  price_class = "PriceClass_100"
-
   restrictions {
-    geo_restriction { restriction_type = "none" }
+    geo_restriction {
+      restriction_type = "none"
+    }
   }
-
-  aliases = [var.portal_fqdn]
 
   viewer_certificate {
     acm_certificate_arn      = var.portal_cert_arn
     ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.2_2021"
   }
-
-  web_acl_id = aws_wafv2_web_acl.portal.arn
 }
 
-# S3 bucket policy that limits access to this specific CF distribution
-data "aws_iam_policy_document" "s3_cf" {
-  statement {
-    sid     = "AllowCloudFrontPrivateContent"
-    actions = ["s3:GetObject"]
-    effect  = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["cloudfront.amazonaws.com"]
-    }
-    resources = ["${var.s3_bucket_arn}/*"]
-    condition {
-      test     = "StringEquals"
-      variable = "AWS:SourceArn"
-      values   = [aws_cloudfront_distribution.portal.arn]
-    }
-  }
+##############################
+# Outputs
+##############################
+output "portal_distribution_id" {
+  value = aws_cloudfront_distribution.portal.id
 }
 
-resource "aws_s3_bucket_policy" "portal" {
-  bucket = trimprefix(var.s3_bucket_arn, "arn:aws:s3:::")
-  policy = data.aws_iam_policy_document.s3_cf.json
+output "portal_domain_name" {
+  value = aws_cloudfront_distribution.portal.domain_name
 }
 
-# Route53 A/AAAA alias records
-resource "aws_route53_record" "portal_alias_a" {
-  zone_id = var.root_zone_id
-  name    = replace(var.portal_fqdn, "/\\.$/", "") # ensure no trailing dot
-  type    = "A"
-  alias {
-    name                   = aws_cloudfront_distribution.portal.domain_name
-    zone_id                = aws_cloudfront_distribution.portal.hosted_zone_id
-    evaluate_target_health = false
-  }
-}
-
-resource "aws_route53_record" "portal_alias_aaaa" {
-  zone_id = var.root_zone_id
-  name    = replace(var.portal_fqdn, "/\\.$/", "")
-  type    = "AAAA"
-  alias {
-    name                   = aws_cloudfront_distribution.portal.domain_name
-    zone_id                = aws_cloudfront_distribution.portal.hosted_zone_id
-    evaluate_target_health = false
-  }
+output "portal_hosted_zone_id" {
+  value = aws_cloudfront_distribution.portal.hosted_zone_id
 }

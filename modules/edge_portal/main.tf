@@ -5,7 +5,9 @@ locals {
   waf_name    = "${var.project}-waf"
 }
 
-# ----- S3 bucket for static site -----
+# -----------------------------
+# S3: Private bucket for portal
+# -----------------------------
 resource "aws_s3_bucket" "portal" {
   bucket = local.bucket_name
 }
@@ -34,17 +36,32 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "portal" {
   }
 }
 
-# ----- WAF (managed rules) -----
+# ----------------------------------------------------------------
+# CloudFront: OAC (SigV4) so CF can read from private S3 origin
+# ----------------------------------------------------------------
+resource "aws_cloudfront_origin_access_control" "portal" {
+  provider = aws.edge
+
+  name                              = "${var.project}-oac"
+  description                       = "OAC for ${var.project} portal"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
+# ----------------------------------------------------
+# WAF (global/CLOUDFRONT) – pin to aws.edge (us-east-1)
+# ----------------------------------------------------
 resource "aws_wafv2_web_acl" "portal" {
+  provider    = aws.edge
   name        = local.waf_name
   description = "Basic WAF for ${var.project} portal"
-  scope       = "CLOUDFRONT" # global (us-east-1 endpoint)
+  scope       = "CLOUDFRONT"
 
   default_action {
     allow {}
   }
 
-  # Example managed rule group (you can add more below with unique priority)
   rule {
     name     = "AWSManagedRulesCommonRuleSet"
     priority = 1
@@ -69,16 +86,22 @@ resource "aws_wafv2_web_acl" "portal" {
 
   visibility_config {
     cloudwatch_metrics_enabled = true
-    metric_name                = "${var.project}-waf"
+    metric_name                = local.waf_name
     sampled_requests_enabled   = true
   }
 }
 
-# ----- CloudFront (OAC to private S3) -----
-# --- CloudFront Distribution ---
+# -------------------------------------------------
+# CloudFront distribution (global) – pin aws.edge
+# -------------------------------------------------
 resource "aws_cloudfront_distribution" "portal" {
+  provider            = aws.edge
   enabled             = true
+  is_ipv6_enabled     = true
   default_root_object = "index.html"
+  price_class         = "PriceClass_100"
+  web_acl_id          = aws_wafv2_web_acl.portal.arn
+  aliases             = [var.portal_fqdn]
 
   origin {
     domain_name              = aws_s3_bucket.portal.bucket_regional_domain_name
@@ -100,26 +123,54 @@ resource "aws_cloudfront_distribution" "portal" {
     }
   }
 
-  price_class = "PriceClass_100"
-
   restrictions {
     geo_restriction {
       restriction_type = "none"
     }
   }
 
-  aliases = [var.portal_fqdn]
-
   viewer_certificate {
     acm_certificate_arn      = var.portal_cert_arn
     ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.2_2021"
   }
-
-  web_acl_id = aws_wafv2_web_acl.portal.arn
 }
 
-# --- Outputs for the module ---
+# ---------------------------------------------------------
+# S3 bucket policy: allow CloudFront (OAC) to GetObject
+# ---------------------------------------------------------
+data "aws_caller_identity" "current" {}
+
+data "aws_iam_policy_document" "portal_bucket_policy" {
+  statement {
+    sid     = "AllowCloudFrontServicePrincipalRead"
+    actions = ["s3:GetObject"]
+    resources = [
+      "${aws_s3_bucket.portal.arn}/*"
+    ]
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+
+    # Restrict reads to *this* distribution (supported by AWS now)
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.portal.arn]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "portal" {
+  bucket = aws_s3_bucket.portal.id
+  policy = data.aws_iam_policy_document.portal_bucket_policy.json
+}
+
+# ----------------
+# Module outputs
+# ----------------
 output "portal_bucket_id" {
   value = aws_s3_bucket.portal.id
 }

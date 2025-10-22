@@ -17,11 +17,12 @@ resource "aws_route53_record" "portal_cert_validation" {
     }
   }
 
-  zone_id = data.aws_route53_zone.root.zone_id
-  name    = each.value.name
-  type    = each.value.type
-  ttl     = 60
-  records = [each.value.value]
+  zone_id         = data.aws_route53_zone.root.zone_id
+  name            = each.value.name
+  type            = each.value.type
+  ttl             = 60
+  records         = [each.value.value]
+  allow_overwrite = true
 }
 
 resource "aws_acm_certificate_validation" "portal" {

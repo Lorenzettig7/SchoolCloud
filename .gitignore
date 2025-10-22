@@ -1,21 +1,21 @@
-**/.terraform/*
+# Terraform
 *.tfstate
-*.tfstate.backup
-*.tfvars
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
 crash.log
 override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
-.terraformrc
-terraform.rc
-.terraform/
-*.tfstate
-*.tfstate.backup
-*.zip
-.DS_Store
-.terraform/
-*.tfstate
-*.tfstate.backup
-*.zip
-.DS_Store
+
+# Environment files
+.env
+*.pem
+*.key
+
+# Node / dist builds (if portal source is included)
+node_modules/
+dist/
+build/
+.cache/
