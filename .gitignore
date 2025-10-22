@@ -14,3 +14,8 @@ terraform.rc
 *.tfstate.backup
 *.zip
 .DS_Store
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.zip
+.DS_Store
