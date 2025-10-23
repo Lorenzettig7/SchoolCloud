@@ -1,39 +1,26 @@
 name: Deploy Portal
 
 on:
-  workflow_dispatch:
   push:
     branches: [ main ]
     paths:
-      - "**.html"
-      - "src/**"
-      - "public/**"
-      - "package.json"
-      - "package-lock.json"
+      - "envs/global/**"
       - ".github/workflows/deploy.yml"
-
+  workflow_dispatch:
+  
 jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
-
     env:
       AWS_REGION: us-east-1
       PORTAL_BUCKET: ${{ vars.PORTAL_BUCKET }}
       CF_DIST_ID: ${{ vars.CF_DIST_ID }}
-      # If you're not building a JS app, set this to the folder with index.html (e.g., envs/global)
-      BUILD_DIR: dist
-
+      BUILD_DIR: envs/global   # ← change from dist to envs/global
     steps:
       - uses: actions/checkout@v4
-
-      - name: Show repo/ref (maps to token sub)
-        run: |
-          echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY"   # e.g., Lorenzettig7/SchoolCloud
-          echo "GITHUB_REF=$GITHUB_REF"                 # e.g., refs/heads/main
-          echo "Expected sub=repo:${GITHUB_REPOSITORY}:ref:${GITHUB_REF}"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -41,28 +28,10 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Who am I (sanity)
-        run: aws sts get-caller-identity
-
-      # Optional Node build (only runs if package.json exists)
-      - name: Setup Node
-        if: hashFiles('package.json') != ''
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install deps
-        if: hashFiles('package.json') != ''
-        run: npm ci
-
-      - name: Build site
-        if: hashFiles('package.json') != ''
-        run: npm run build
-
       - name: Verify build/static folder exists
         run: |
           echo "Using BUILD_DIR='${BUILD_DIR}'"
-          test -d "$BUILD_DIR" || { echo "Folder '$BUILD_DIR' not found. Set BUILD_DIR to the folder with your site files."; exit 1; }
+          test -d "$BUILD_DIR" || { echo "Folder '$BUILD_DIR' not found"; exit 1; }
           ls -la "$BUILD_DIR"
 
       - name: Sync to S3
@@ -70,5 +39,4 @@ jobs:
           aws s3 sync "$BUILD_DIR"/ "s3://${PORTAL_BUCKET}/" --delete --exact-timestamps --no-progress
 
       - name: Invalidate CloudFront cache
-        run: |
-          aws cloudfront create-invalidation --distribution-id "${CF_DIST_ID}" --paths "/*"
+        run: aws cloudfront create-invalidation --distribution-id "${CF_DIST_ID}" --paths "/*"
