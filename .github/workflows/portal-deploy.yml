@@ -16,7 +16,7 @@ env:
   AWS_REGION: us-east-1
   # Keep these as-is if they match your current infra; otherwise change to your values.
   PORTAL_BUCKET: schoolcloud-portal-us-east-1
-  DIST_ID: E1XFBIV7FJ6P9P
+  DIST_ID: E3QFAE8UN3CQUW
 
 jobs:
   deploy:
