@@ -33,6 +33,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Show repo/ref (maps to token sub)
+         run:|
+         echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY"   # e.g., Lorenzettig7/SchoolCloud
+        echo "GITHUB_REF=$GITHUB_REF"                 # e.g., refs/heads/main
+         echo "Expected sub=repo:${GITHUB_REPOSITORY}:ref:${GITHUB_REF}"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
