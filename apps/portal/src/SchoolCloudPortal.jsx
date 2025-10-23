@@ -1,15 +1,105 @@
 import React, { useMemo, useState } from "react";
+import { API, apiFetch } from "./lib/api";
+
 
 // SchoolCloud Interactive Portal — Single-file React starter
 // Tailwind classes only. Replace mock handlers with real API calls when wiring to AWS.
 // Suggested wiring notes are inline as comments.
 
 export default function SchoolCloudPortal() {
-  const [activeTab, setActiveTab] = useState("overview");
-  const [events, setEvents] = useState([]);
-  const [ciRuns, setCiRuns] = useState([]);
-  const [expandedNodes, setExpandedNodes] = useState({ foundational: true, workloads: true, sandboxes: false, vendors: false });
-  const [policyView, setPolicyView] = useState("boundary");
+  const [activeTab, setActiveTab] = React.useState("overview");
+  const [expandedNodes, setExpandedNodes] = React.useState({});
+  const [ciRuns, setCiRuns] = React.useState([]);
+  const [policyView, setPolicyView] = React.useState("boundary");
+
+  const [token, setToken] = React.useState(localStorage.getItem("demo_token") || null);
+
+  // Forms
+  const [signupForm, setSignupForm] = React.useState({
+    email: "", password: "", role: "student", school_id: "", dob: ""
+  });
+  const [loginForm, setLoginForm] = React.useState({ email: "", password: "" });
+
+  // Activity feed
+  const [events, setEvents] = React.useState([]);
+  const lastTs = React.useRef(0);
+
+  // Poll events every 3s when logged in
+  React.useEffect(() => {
+    if (!token) return;
+    const t = setInterval(async () => {
+      try {
+        const res = await fetch(`${API}/events?since=${lastTs.current}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const batch = await res.json();
+        if (batch.length) {
+          setEvents(prev => [...batch, ...prev].slice(0, 100));
+          lastTs.current = Math.max(lastTs.current, ...batch.map(e => e.ts || 0));
+        }
+      } catch {}
+    }, 3000);
+    return () => clearInterval(t);
+  }, [token]);
+
+  // Helpers to add optimistic feed messages
+  function addOptimistic(msg) {
+    const ts = Date.now();
+    setEvents(prev => [{ ts, type: "client", status: "PENDING", message: msg }, ...prev]);
+  }
+
+  // Actions
+  async function doSignup(e) {
+    e.preventDefault();
+    addOptimistic("Creating account…");
+    const r = await apiFetch("/auth/signup", { method: "POST", body: signupForm });
+    localStorage.setItem("demo_token", r.token);
+    setToken(r.token);
+  }
+
+  async function doLogin(e) {
+    e.preventDefault();
+    addOptimistic("Logging in…");
+    const r = await apiFetch("/auth/login", { method: "POST", body: loginForm });
+    localStorage.setItem("demo_token", r.token);
+    setToken(r.token);
+  }
+
+  async function setEncryption(enc) {
+    addOptimistic(`Setting encryption policy: ${enc}…`);
+    await apiFetch("/identity/policy", { method: "POST", token, body: { encryption: enc } });
+  }
+
+  async function addToGroup(group) {
+    addOptimistic(`Adding to ${group} group…`);
+    await apiFetch("/identity/group", { method: "POST", token, body: { group } });
+  }
+
+  // Small feed renderer
+  function ActivityFeed() {
+    return (
+      <div className="space-y-2 text-sm">
+        {events.map((e, i) => (
+          <div
+            key={`${e.ts || i}-${e.id || e.action || e.message || "row"}`}
+            className="flex items-start gap-2"
+          >
+            <span className="text-slate-400 w-24 tabular-nums">
+              {new Date(e.ts || Date.now()).toLocaleTimeString()}
+            </span>
+            <span className={
+              e.status === "PENDING" ? "text-amber-400" :
+              e.status === "OK" ? "text-emerald-400" : "text-rose-400"
+            }>
+              {e.message}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
 
   function now() {
     return new Date().toLocaleString();
@@ -145,8 +235,22 @@ export default function SchoolCloudPortal() {
           <Architecture orgTree={orgTree} expandedNodes={expandedNodes} setExpandedNodes={setExpandedNodes} />
         )}
         {activeTab === "identity" && (
-          <Identity policyView={policyView} setPolicyView={setPolicyView} />
+          <Identity
+            policyView={policyView}
+            setPolicyView={setPolicyView}
+            token={token}
+            signupForm={signupForm}
+            setSignupForm={setSignupForm}
+            loginForm={loginForm}
+            setLoginForm={setLoginForm}
+            doSignup={doSignup}
+            doLogin={doLogin}
+            setEncryption={setEncryption}
+            addToGroup={addToGroup}
+            ActivityFeed={ActivityFeed}
+         />
         )}
+
         {activeTab === "cicd" && (
           <CiCd ciRuns={ciRuns} triggerCiRun={triggerCiRun} />
         )}
@@ -277,7 +381,15 @@ function Architecture({ orgTree, expandedNodes, setExpandedNodes }) {
   );
 }
 
-function Identity({ policyView, setPolicyView }) {
+function Identity({
+  policyView, setPolicyView,
+  token,
+  signupForm, setSignupForm,
+  loginForm, setLoginForm,
+  doSignup, doLogin,
+  setEncryption, addToGroup,
+  ActivityFeed
+}) {
   const boundaryJson = `{
   "Version": "2012-10-17",
   "Statement": [
@@ -287,30 +399,137 @@ function Identity({ policyView, setPolicyView }) {
   ]
 }`;
 
-  const ssoMarkdown = `Admins → limited-admin role (boundary enforced)\nFaculty → read dashboards\nCounselors → protected APIs (JWT group claims)\nStudents → sandbox only + budgets`;
+  const ssoMarkdown = `Admins → limited-admin role (boundary enforced)
+Faculty → read dashboards
+Counselors → protected APIs (JWT group claims)
+Students → sandbox only + budgets`;
 
   return (
-    <div className="grid lg:grid-cols-2 gap-6">
-      <Card title="Identity Center (SSO) Mappings">
-        <pre className="text-xs bg-slate-800 rounded-xl p-4 overflow-auto whitespace-pre-wrap">{ssoMarkdown}</pre>
-        <div className="mt-3 text-xs text-slate-400">Map groups → accounts via Permission Sets. Use ABAC tags for finer control.</div>
-      </Card>
-      <Card title="Permission Boundary">
-        <div className="flex gap-2 mb-3 text-xs">
-          <button onClick={() => setPolicyView("boundary")} className={`px-3 py-1 rounded ${policyView==='boundary'?'bg-emerald-500 text-slate-900':'bg-slate-800'}`}>Boundary JSON</button>
-          <button onClick={() => setPolicyView("explain")} className={`px-3 py-1 rounded ${policyView==='explain'?'bg-emerald-500 text-slate-900':'bg-slate-800'}`}>Explanation</button>
+    <div className="space-y-6">
+      {/* Live Identity UI */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Left column: Signup / Login / Policies */}
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 shadow-lg shadow-black/30">
+            <div className="px-5 py-4 border-b border-slate-800/80">
+              <h3 className="text-sm font-semibold tracking-wide text-slate-200">Create Demo Account</h3>
+            </div>
+            <div className="p-5">
+              <form className="grid grid-cols-2 gap-3" onSubmit={doSignup}>
+                <input className="col-span-2 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-sm"
+                  placeholder="Email (fake ok)"
+                  value={signupForm.email}
+                  onChange={e => setSignupForm(f => ({ ...f, email: e.target.value }))} />
+                <input className="col-span-2 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-sm"
+                  placeholder="Password" type="password"
+                  value={signupForm.password}
+                  onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))} />
+                <select className="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-sm"
+                  value={signupForm.role}
+                  onChange={e => setSignupForm(f => ({ ...f, role: e.target.value }))}>
+                  <option value="student">Student</option>
+                  <option value="teacher">Teacher</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <input className="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-sm"
+                  placeholder="School ID (e.g., SCH-0001)"
+                  value={signupForm.school_id}
+                  onChange={e => setSignupForm(f => ({ ...f, school_id: e.target.value }))} />
+                <input className="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-sm"
+                  placeholder="DOB (YYYY-MM-DD)"
+                  value={signupForm.dob}
+                  onChange={e => setSignupForm(f => ({ ...f, dob: e.target.value }))} />
+                <button className="col-span-2 px-4 py-2 rounded-xl bg-emerald-500 text-slate-900 font-semibold hover:opacity-90">
+                  Sign up
+                </button>
+              </form>
+              <p className="text-xs text-amber-400 mt-2">Demo only — do not use real personal data.</p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 shadow-lg shadow-black/30">
+            <div className="px-5 py-4 border-b border-slate-800/80">
+              <h3 className="text-sm font-semibold tracking-wide text-slate-200">Login</h3>
+            </div>
+            <div className="p-5">
+              <form className="grid grid-cols-2 gap-3" onSubmit={doLogin}>
+                <input className="col-span-2 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-sm"
+                  placeholder="Email"
+                  value={loginForm.email}
+                  onChange={e => setLoginForm(f => ({ ...f, email: e.target.value }))} />
+                <input className="col-span-2 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-sm"
+                  placeholder="Password" type="password"
+                  value={loginForm.password}
+                  onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))} />
+                <button className="col-span-2 px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600">
+                  Login
+                </button>
+              </form>
+              {token ? <p className="text-xs text-emerald-400 mt-2">Logged in</p> : null}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 shadow-lg shadow-black/30">
+            <div className="px-5 py-4 border-b border-slate-800/80">
+              <h3 className="text-sm font-semibold tracking-wide text-slate-200">Policies &amp; Groups (demo)</h3>
+            </div>
+            <div className="p-5">
+              <div className="flex flex-wrap gap-2">
+                <button className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={() => setEncryption("SSE-S3")} disabled={!token}>Set Encryption: SSE-S3</button>
+                <button className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={() => setEncryption("SSE-KMS")} disabled={!token}>Set Encryption: SSE-KMS</button>
+                <button className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={() => addToGroup("student")} disabled={!token}>Add to Student</button>
+                <button className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={() => addToGroup("teacher")} disabled={!token}>Add to Teacher</button>
+                <button className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700" onClick={() => addToGroup("admin")} disabled={!token}>Add to Admin</button>
+              </div>
+            </div>
+          </div>
         </div>
-        {policyView === "boundary" ? (
-          <pre className="text-xs bg-slate-800 rounded-xl p-4 overflow-auto">{boundaryJson}</pre>
-        ) : (
-          <ul className="text-sm list-disc ml-5 space-y-2">
-            <li>Prevents privilege escalation (policy version, passrole abuse).</li>
-            <li>Enforces project tagging for create/update/delete actions.</li>
-            <li>Restricts KMS operations to approved aliases.</li>
-          </ul>
-        )}
-        <div className="mt-3 text-xs text-slate-400">Attach this boundary to all human & automation roles (including OIDC deploy roles).</div>
-      </Card>
+
+        {/* Right column: Activity Feed */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 shadow-lg shadow-black/30">
+          <div className="px-5 py-4 border-b border-slate-800/80">
+            <h3 className="text-sm font-semibold tracking-wide text-slate-200">Activity Feed</h3>
+          </div>
+          <div className="p-5">
+            <ActivityFeed />
+          </div>
+        </div>
+      </div>
+
+      {/* (Optional) Keep your existing static cards below */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 shadow-lg shadow-black/30">
+          <div className="px-5 py-4 border-b border-slate-800/80">
+            <h3 className="text-sm font-semibold tracking-wide text-slate-200">Identity Center (SSO) Mappings</h3>
+          </div>
+          <div className="p-5">
+            <pre className="text-xs bg-slate-800 rounded-xl p-4 overflow-auto whitespace-pre-wrap">{ssoMarkdown}</pre>
+            <div className="mt-3 text-xs text-slate-400">Map groups → accounts via Permission Sets. Use ABAC tags for finer control.</div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 shadow-lg shadow-black/30">
+          <div className="px-5 py-4 border-b border-slate-800/80 flex items-center justify-between">
+            <h3 className="text-sm font-semibold tracking-wide text-slate-200">Permission Boundary</h3>
+            <div className="flex gap-2 text-xs">
+              <button onClick={() => setPolicyView("boundary")} className={`px-3 py-1 rounded ${policyView==='boundary'?'bg-emerald-500 text-slate-900':'bg-slate-800'}`}>Boundary JSON</button>
+              <button onClick={() => setPolicyView("explain")} className={`px-3 py-1 rounded ${policyView==='explain'?'bg-emerald-500 text-slate-900':'bg-slate-800'}`}>Explanation</button>
+            </div>
+          </div>
+          <div className="p-5">
+            {policyView === "boundary" ? (
+              <pre className="text-xs bg-slate-800 rounded-xl p-4 overflow-auto">{boundaryJson}</pre>
+            ) : (
+              <ul className="text-sm list-disc ml-5 space-y-2">
+                <li>Prevents privilege escalation (policy version, passrole abuse).</li>
+                <li>Enforces project tagging for create/update/delete actions.</li>
+                <li>Restricts KMS operations to approved aliases.</li>
+              </ul>
+            )}
+            <div className="mt-3 text-xs text-slate-400">Attach this boundary to all human & automation roles (including OIDC deploy roles).</div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -15,3 +15,9 @@ module "portal_bucket" {
   project = var.project
   region  = var.region
 }
+module "demo_identity_api" {
+  source                   = "../../modules/demo_identity_api"
+  project                  = var.project # "schoolcloud"
+  region                   = var.region  # "us-east-1"
+  permissions_boundary_arn = null
+}
