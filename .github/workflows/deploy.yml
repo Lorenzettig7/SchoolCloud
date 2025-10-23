@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
   push:
     branches: [ main ]
-    # Trigger when app code or this workflow changes (not on dist/)
     paths:
       - "**.html"
       - "src/**"
@@ -21,23 +20,20 @@ jobs:
       contents: read
 
     env:
-      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      AWS_REGION: us-east-1
       PORTAL_BUCKET: ${{ vars.PORTAL_BUCKET }}
       CF_DIST_ID: ${{ vars.CF_DIST_ID }}
-      # Change this if you’re not using a JS build. Examples:
-      #  - For Vite: dist
-      #  - For CRA: build
-      #  - For Next export: out
-      #  - For plain static files: envs/global
+      # If you're not building a JS app, set this to the folder with index.html (e.g., envs/global)
       BUILD_DIR: dist
 
     steps:
       - uses: actions/checkout@v4
+
       - name: Show repo/ref (maps to token sub)
-         run:|
-         echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY"   # e.g., Lorenzettig7/SchoolCloud
-        echo "GITHUB_REF=$GITHUB_REF"                 # e.g., refs/heads/main
-         echo "Expected sub=repo:${GITHUB_REPOSITORY}:ref:${GITHUB_REF}"
+        run: |
+          echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY"   # e.g., Lorenzettig7/SchoolCloud
+          echo "GITHUB_REF=$GITHUB_REF"                 # e.g., refs/heads/main
+          echo "Expected sub=repo:${GITHUB_REPOSITORY}:ref:${GITHUB_REF}"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -48,7 +44,7 @@ jobs:
       - name: Who am I (sanity)
         run: aws sts get-caller-identity
 
-      # Optional build (only runs if package.json present)
+      # Optional Node build (only runs if package.json exists)
       - name: Setup Node
         if: hashFiles('package.json') != ''
         uses: actions/setup-node@v4
@@ -75,6 +71,4 @@ jobs:
 
       - name: Invalidate CloudFront cache
         run: |
-          aws cloudfront create-invalidation \
-            --distribution-id "${CF_DIST_ID}" \
-            --paths "/*"
+          aws cloudfront create-invalidation --distribution-id "${CF_DIST_ID}" --paths "/*"
