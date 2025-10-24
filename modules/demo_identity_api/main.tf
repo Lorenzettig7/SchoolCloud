@@ -14,6 +14,11 @@ variable "permissions_boundary_arn" {
   type    = string
   default = null
 }
+variable "github_repo_sub" {
+  type        = string
+  description = "Subject claim for GitHub OIDC (e.g., repo:owner/repo:ref)"
+}
+
 
 locals {
   name_prefix = "${var.project}-demo"
@@ -205,7 +210,12 @@ resource "aws_apigatewayv2_api" "http" {
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_origins     = ["https://portal.secureschoolcloud.org", "http://localhost:5173"]
+    allow_origins = [
+      "https://portal.secureschoolcloud.org",
+      "http://localhost:5173",
+      "http://localhost:4173",
+      "http://127.0.0.1:4173",
+    ]
     allow_methods     = ["GET", "POST", "OPTIONS"]
     allow_headers     = ["authorization", "content-type"]
     allow_credentials = false
@@ -224,22 +234,29 @@ resource "aws_apigatewayv2_stage" "nonprod" {
   }
 }
 
+
 resource "aws_apigatewayv2_integration" "auth" {
-  api_id           = aws_apigatewayv2_api.http.id
-  integration_type = "AWS_PROXY"
-  integration_uri  = aws_lambda_function.auth.invoke_arn
+  api_id                 = aws_apigatewayv2_api.http.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.auth.invoke_arn
+  payload_format_version = "2.0"   # <-- change from "1.0"
+  timeout_milliseconds   = 29000
 }
 
 resource "aws_apigatewayv2_integration" "identity" {
   api_id           = aws_apigatewayv2_api.http.id
   integration_type = "AWS_PROXY"
   integration_uri  = aws_lambda_function.identity.invoke_arn
+  payload_format_version = "2.0"
+  timeout_milliseconds   = 29000 
 }
 
 resource "aws_apigatewayv2_integration" "events" {
   api_id           = aws_apigatewayv2_api.http.id
   integration_type = "AWS_PROXY"
   integration_uri  = aws_lambda_function.events.invoke_arn
+  payload_format_version = "2.0" 
+  timeout_milliseconds   = 29000
 }
 
 resource "aws_apigatewayv2_route" "post_signup" {
