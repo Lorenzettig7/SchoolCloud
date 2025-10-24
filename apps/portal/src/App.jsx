@@ -1,5 +1,7 @@
 import React from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import SchoolCloudPortal from "./SchoolCloudPortal.jsx";
+import LoginPage from "./lib/LoginPage.jsx"; // you’ll create this next
 
 function ErrorBoundary({ children }) {
   const [err, setErr] = React.useState(null);
@@ -28,7 +30,12 @@ function ErrorBoundary({ children }) {
 export default function App() {
   return (
     <ErrorBoundary>
-      <SchoolCloudPortal />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<SchoolCloudPortal />} />
+          <Route path="/login" element={<LoginPage />} />
+        </Routes>
+      </BrowserRouter>
     </ErrorBoundary>
   );
 }

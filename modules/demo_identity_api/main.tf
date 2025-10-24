@@ -16,9 +16,9 @@ variable "permissions_boundary_arn" {
 }
 variable "github_repo_sub" {
   type        = string
-  description = "Subject claim for GitHub OIDC (e.g., repo:owner/repo:ref)"
+  description = "Subject claim for GitHub OIDC (e.g., repo:owner/Repo:*)"
+  default     = null
 }
-
 
 locals {
   name_prefix = "${var.project}-demo"
@@ -93,8 +93,10 @@ resource "aws_iam_role_policy_attachment" "basic_exec" {
   role       = aws_iam_role.api.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
+data "aws_caller_identity" "current" {}
 
 data "aws_iam_policy_document" "ddb_access" {
+  # Existing DDB permissions
   statement {
     sid    = "UsersTableAccess"
     effect = "Allow"
@@ -102,11 +104,23 @@ data "aws_iam_policy_document" "ddb_access" {
       "dynamodb:PutItem",
       "dynamodb:GetItem",
       "dynamodb:UpdateItem",
-      "dynamodb:Query"
+      "dynamodb:Query",
     ]
     resources = [
       aws_dynamodb_table.users.arn,
-      "${aws_dynamodb_table.users.arn}/index/*"
+      "${aws_dynamodb_table.users.arn}/index/*",
+    ]
+  }
+  statement {
+    sid    = "ReadJwtSecretFromSSM"
+    effect = "Allow"
+    actions = [
+      "ssm:GetParameter",
+      "ssm:GetParameters",
+      "ssm:GetParameterHistory",
+    ]
+    resources = [
+      "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/${local.name_prefix}/jwt_secret",
     ]
   }
 
