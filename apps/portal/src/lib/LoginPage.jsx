@@ -1,32 +1,26 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { apiFetch } from "./api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const navigate = useNavigate();
 
   async function handleLogin(e) {
     e.preventDefault();
     setMessage("Logging in...");
     try {
-      const res = await fetch("/auth/login", {
+      const r = await apiFetch("/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: { email, password },
       });
-
-      const data = await res.json();
-
-      if (res.ok && data.token) {
-        localStorage.setItem("jwt", data.token);
-        setMessage("✅ Login successful!");
-        window.location.href = "/";
-      } else {
-        setMessage("❌ Invalid credentials");
-      }
+      localStorage.setItem("demo_token", r.token);
+      setMessage("✅ Login successful!");
+      navigate("/"); // back to portal
     } catch (err) {
-      console.error(err);
-      setMessage("Server error: " + err.message);
+      setMessage(`❌ ${err.message || "Login failed"}`);
     }
   }
 

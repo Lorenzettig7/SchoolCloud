@@ -236,6 +236,17 @@ resource "aws_apigatewayv2_api" "http" {
     max_age           = 86400
   }
 }
+resource "aws_apigatewayv2_api" "demo" {
+  name          = "${var.project}-demo-api"
+  protocol_type = "HTTP"
+
+  cors_configuration {
+    allow_origins = ["*"]               
+    allow_methods = ["GET", "POST", "OPTIONS"]
+    allow_headers = ["content-type", "authorization"]
+    max_age       = 86400
+  }
+}
 
 resource "aws_apigatewayv2_stage" "nonprod" {
   api_id      = aws_apigatewayv2_api.http.id

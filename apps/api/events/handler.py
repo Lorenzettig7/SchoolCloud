@@ -1,10 +1,22 @@
 import os, json, base64, boto3
 from boto3.dynamodb.conditions import Key
 
+def resp(code, body):
+    return {
+        "statusCode": code,
+        "headers": {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+            "Access-Control-Allow-Headers": "content-type,authorization",
+        },
+        "body": json.dumps(body),
+    }
+
 EVENTS = boto3.resource("dynamodb").Table(os.environ["EVENTS_TABLE"])
 
 def resp(code, body): 
-  return {"statusCode": code, "headers":{"content-type":"application/json","access-control-allow-origin":"*"}, "body": json.dumps(body)}
+  return resp(200, {"message": "ok"})
 
 def parse_token(auth_header):
   if not auth_header or not auth_header.startswith("Bearer "): return None
@@ -14,7 +26,8 @@ def decode_payload(token):
   try:
     parts = token.split(".")
     payload_b64 = parts[1] + "="*((4-len(parts[1])%4)%4)
-    return json.loads(base64.urlsafe_b64decode(payload_b64.encode()).decode())
+    return resp(200, {"message": "ok"})
+
   except Exception:
     return None
 

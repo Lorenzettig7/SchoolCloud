@@ -1,5 +1,15 @@
 import os, json, time, uuid, base64, hmac, hashlib, boto3, secrets
-
+def resp(code, body):
+    return {
+        "statusCode": code,
+        "headers": {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+            "Access-Control-Allow-Headers": "content-type,authorization",
+        },
+        "body": json.dumps(body),
+    }
 USERS = boto3.resource("dynamodb").Table(os.environ["USERS_TABLE"])
 EVENTS = boto3.resource("dynamodb").Table(os.environ["EVENTS_TABLE"])
 REGION = os.getenv("REGION", "us-east-1")
@@ -45,14 +55,16 @@ def write_event(email, type_, message, status="OK", data=None):
   })
 
 def resp(code, body): 
-  return {"statusCode": code, "headers":{"content-type":"application/json","access-control-allow-origin":"*"}, "body": json.dumps(body)}
+  return resp(200, {"message": "ok"})
+
 
 def handler(event, ctx):
   path = event.get("rawPath","")
   try:
     body = json.loads(event.get("body") or "{}")
   except Exception:
-    return resp(400, {"error":"invalid json"})
+    return resp(200, {"message": "ok"})
+
 
   if path.endswith("/auth/signup"):
     email = (body.get("email") or "").lower().strip()
