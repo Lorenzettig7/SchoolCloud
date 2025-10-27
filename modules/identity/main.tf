@@ -49,6 +49,44 @@ resource "aws_iam_role_policy_attachments_exclusive" "deploy_dev_exclusive" {
   role_name   = aws_iam_role.deploy_dev.name
   policy_arns = [aws_iam_role_policy_attachment.deploy_dev_poweruser.policy_arn]
 }
+resource "aws_iam_role" "identity" {
+  name = "${var.project}-demo-identity-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "lambda.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_lambda_function" "identity" {
+  function_name = "${var.project}-demo-identity"
+  role          = aws_iam_role.identity.arn
+  # Add your actual lambda config here
+}
+resource "aws_iam_role" "events" {
+  name = "${var.project}-demo-events-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "lambda.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_lambda_function" "events" {
+  function_name = "${var.project}-demo-events"
+  role          = aws_iam_role.events.arn
+  # Add your actual lambda config here
+}
 
 output "deploy_role_arn" {
   value = aws_iam_role.deploy_dev.arn

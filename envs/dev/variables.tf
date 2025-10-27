@@ -10,7 +10,12 @@ variable "region" {
 }
 
 # Only needed if your identity module uses it (it does)
-variable "github_repo_sub" {
-  type    = string
-  default = ""
+variable "repo_sub" {
+  type        = string
+  description = "GitHub subdirectory"
+}
+
+variable "permissions_boundary_arn" {
+  type        = string
+  description = "IAM Permissions Boundary ARN"
 }

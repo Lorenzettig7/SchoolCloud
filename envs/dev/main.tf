@@ -7,7 +7,7 @@ module "kms" {
 module "identity" {
   source   = "../../modules/identity"
   project  = var.project
-  repo_sub = var.github_repo_sub
+  repo_sub = var.repo_sub
 }
 
 module "portal_bucket" {
@@ -16,19 +16,15 @@ module "portal_bucket" {
   region  = var.region
 }
 
+
 module "demo_identity_api" {
   source                   = "../../modules/demo_identity_api"
   project                  = var.project
   region                   = var.region
-  permissions_boundary_arn = null  # set if your org requires it
+  permissions_boundary_arn = var.permissions_boundary_arn
 
-  # Use the Lambda we just created
-  auth_lambda_arn     = aws_lambda_function.auth.arn
-  identity_lambda_arn = ""  # leave empty until you add it
-  events_lambda_arn   = ""  # leave empty until you add it
+  auth_lambda_arn         = aws_lambda_function.auth.arn
+  identity_lambda_arn = module.identity.identity_lambda_arn
+  events_lambda_arn   = module.identity.events_lambda_arn
 
-  # Names for permissions (module skips permission resource if name == "")
-  auth_lambda_name     = aws_lambda_function.auth.function_name
-  identity_lambda_name = ""
-  events_lambda_name   = ""
 }
