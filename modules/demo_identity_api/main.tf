@@ -148,3 +148,7 @@ output "demo_api_id" {
 output "demo_api_endpoint" {
   value = aws_apigatewayv2_api.demo.api_endpoint
 }
+
+output "execution_arn" {
+  value = aws_apigatewayv2_api.demo.execution_arn
+}

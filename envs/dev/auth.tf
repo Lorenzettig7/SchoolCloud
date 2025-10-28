@@ -84,6 +84,31 @@ resource "aws_lambda_function" "auth" {
 
   tags = { Project = var.project }
 }
+# Allow API Gateway v2 (HTTP API) to invoke the Auth Lambda
+resource "aws_lambda_permission" "apigw_auth" {
+  statement_id  = "AllowAPIGatewayInvokeAuth"
+  action        = "lambda:InvokeFunction"
+  function      = aws_lambda_function.auth.function_name
+  principal     = "apigateway.amazonaws.com"
+
+  # For HTTP API v2, use the module's execution ARN
+  source_arn    = "${module.demo_identity_api.execution_arn}/*/*"
+}
+resource "aws_lambda_permission" "apigw_identity" {
+  statement_id  = "AllowAPIGatewayInvokeIdentity"
+  action        = "lambda:InvokeFunction"
+  function      = aws_lambda_function.identity.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${module.demo_identity_api.execution_arn}/*/*"
+}
+
+resource "aws_lambda_permission" "apigw_events" {
+  statement_id  = "AllowAPIGatewayInvokeEvents"
+  action        = "lambda:InvokeFunction"
+  function      = aws_lambda_function.events.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${module.demo_identity_api.execution_arn}/*/*"
+}
 
 # Optional outputs for other files to reference
 output "auth_lambda_name" { value = aws_lambda_function.auth.function_name }

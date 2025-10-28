@@ -10,3 +10,4 @@ module "portal_edge" {
 
   root_zone_id = data.aws_route53_zone.root.zone_id
 }
+
