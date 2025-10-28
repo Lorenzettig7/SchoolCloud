@@ -28,3 +28,24 @@ module "demo_identity_api" {
   events_lambda_arn   = module.identity.events_lambda_arn
 
 }
+resource "aws_dynamodb_table" "users" {
+  name         = "schoolcloud-demo-users"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "user_id"
+
+  attribute {
+    name = "user_id"
+    type = "S"
+  }
+}
+
+resource "aws_dynamodb_table" "events" {
+  name         = "schoolcloud-demo-events"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "event_id"
+
+  attribute {
+    name = "event_id"
+    type = "S"
+  }
+}

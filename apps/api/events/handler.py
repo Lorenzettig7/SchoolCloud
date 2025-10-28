@@ -15,9 +15,6 @@ def resp(code, body):
 
 EVENTS = boto3.resource("dynamodb").Table(os.environ["EVENTS_TABLE"])
 
-def resp(code, body): 
-  return resp(200, {"message": "ok"})
-
 def parse_token(auth_header):
   if not auth_header or not auth_header.startswith("Bearer "): return None
   return auth_header.split(" ",1)[1]

@@ -12,10 +12,10 @@ output "api_base_url" {
   description = "Fully qualified base URL for the demo API including stage"
 }
 
-# Look up existing DynamoDB tables by name (they already exist in AWS)
-data "aws_dynamodb_table" "users"  { name = "schoolcloud-demo-users" }
-data "aws_dynamodb_table" "events" { name = "schoolcloud-demo-events" }
+output "users_table" {
+  value = aws_dynamodb_table.users.name
+}
 
-output "users_table"  { value = data.aws_dynamodb_table.users.name }
-output "events_table" { value = data.aws_dynamodb_table.events.name }
-
+output "events_table" {
+  value = aws_dynamodb_table.events.name
+}
