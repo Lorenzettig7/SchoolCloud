@@ -7,21 +7,11 @@ data "aws_partition" "this" {}
 # IAM role for the Lambda
 # -----------------------------
 resource "aws_iam_role" "auth" {
-  name = "${var.project}-demo-auth-role"
+  name               = "${var.project}-demo-auth-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [{
-      Effect    = "Allow",
-      Principal = { Service = "lambda.amazonaws.com" },
-      Action    = "sts:AssumeRole"
-    }]
-  })
-
-  # use boundary if your org requires it; leave null otherwise
+  # <-- this must point to the ARN of SchoolCloudBoundary
   permissions_boundary = var.permissions_boundary_arn
-
-  tags = { Project = var.project }
 }
 
 # Basic logging
@@ -68,47 +58,35 @@ resource "aws_lambda_function" "auth" {
   runtime       = "python3.12"
   handler       = "auth/handler.handler"
 
-  # points to the zip you created at apps/auth.zip
   filename         = "${path.module}/../../apps/auth.zip"
   source_code_hash = filebase64sha256("${path.module}/../../apps/auth.zip")
 
+  # Force AWS-managed key for env encryption
+  kms_key_arn = "arn:aws:kms:us-east-1:${data.aws_caller_identity.this.account_id}:alias/aws/lambda"
+
+  timeout = 30
+
   environment {
     variables = {
+      REGION       = "us-east-1"
       USERS_TABLE  = "schoolcloud-demo-users"
       EVENTS_TABLE = "schoolcloud-demo-events"
       JWT_PARAM    = "/schoolcloud-demo/jwt_secret"
       JWT_SECRET   = "dev-demo-secret"
-      REGION       = var.region
+      BUILD_TS     = timestamp()   # forces config refresh & re-encryption
     }
   }
-
-  tags = { Project = var.project }
 }
+
 # Allow API Gateway v2 (HTTP API) to invoke the Auth Lambda
 resource "aws_lambda_permission" "apigw_auth" {
   statement_id  = "AllowAPIGatewayInvokeAuth"
   action        = "lambda:InvokeFunction"
-  function      = aws_lambda_function.auth.function_name
-  principal     = "apigateway.amazonaws.com"
-
-  # For HTTP API v2, use the module's execution ARN
-  source_arn    = "${module.demo_identity_api.execution_arn}/*/*"
-}
-resource "aws_lambda_permission" "apigw_identity" {
-  statement_id  = "AllowAPIGatewayInvokeIdentity"
-  action        = "lambda:InvokeFunction"
-  function      = aws_lambda_function.identity.function_name
+  function_name = aws_lambda_function.auth.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${module.demo_identity_api.execution_arn}/*/*"
 }
 
-resource "aws_lambda_permission" "apigw_events" {
-  statement_id  = "AllowAPIGatewayInvokeEvents"
-  action        = "lambda:InvokeFunction"
-  function      = aws_lambda_function.events.function_name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${module.demo_identity_api.execution_arn}/*/*"
-}
 
 # Optional outputs for other files to reference
 output "auth_lambda_name" { value = aws_lambda_function.auth.function_name }

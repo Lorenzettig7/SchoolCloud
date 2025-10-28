@@ -1,10 +1,60 @@
 resource "aws_iam_policy" "boundary" {
-  name   = "SchoolCloudBoundary"
-  policy = file("${path.module}/boundary.json")
-
-  lifecycle {
-    prevent_destroy = true
-  }
+  name        = "SchoolCloudBoundary"
+  description = "Permissions boundary for SchoolCloud roles"
+  policy      = jsonencode({
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "NoPrivilegeEscalation",
+        "Effect": "Deny",
+        "Action": [
+          "iam:CreatePolicyVersion",
+          "iam:SetDefaultPolicyVersion",
+          "iam:PassRole",
+          "iam:AttachRolePolicy",
+          "iam:PutRolePolicy"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Sid": "TagGuardExceptKMS",
+        "Effect": "Deny",
+        "NotAction": [
+          "kms:*"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "StringNotEquals": {
+            "aws:ResourceTag/Project": "schoolcloud"
+          }
+        }
+      },
+      {
+        "Sid": "RestrictKMSExceptAllowedAliases",
+        "Effect": "Deny",
+        "Action": "kms:*",
+        "Resource": "*",
+        "Condition": {
+          "ForAnyValue:StringNotLike": {
+            "kms:ResourceAliases": [
+              "alias/schoolcloud/*",
+              "alias/aws/lambda"
+            ]
+          }
+        }
+      },
+      {
+        "Sid": "AllowSSMParameterRead",
+        "Effect": "Allow",
+        "Action": [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParameterHistory"
+        ],
+        "Resource": "*"
+      }
+    ]
+  })
 }
 
 resource "aws_iam_role" "identity" {
