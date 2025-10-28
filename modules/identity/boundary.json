@@ -30,6 +30,16 @@
       "Condition": {
         "StringNotEquals": { "kms:ResourceAliases": "alias/schoolcloud/*" }
       }
+    },
+    {
+      "Sid": "AllowSSMParameterRead",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParameterHistory"
+      ],
+      "Resource": "*"
     }
   ]
 }

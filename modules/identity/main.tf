@@ -35,39 +35,44 @@ resource "aws_iam_role" "events" {
   })
 }
 
+# --- Identity Lambda ---
 resource "aws_lambda_function" "identity" {
   function_name    = "${var.project}-demo-identity"
   role             = aws_iam_role.identity.arn
   runtime          = "python3.12"
-  handler          = "handler.handler"
-  filename         = "${path.module}/../../apps/api/identity/identity.zip"
-  source_code_hash = filebase64sha256("${path.module}/../../apps/api/identity/identity.zip")
-
-
-  timeout = 30
+  handler          = "identity/handler.handler"
+  filename         = "${path.module}/../../apps/identity.zip"
+  source_code_hash = filebase64sha256("${path.module}/../../apps/identity.zip")
+  timeout          = 30
 
   environment {
     variables = {
-      LOG_LEVEL = "info"
-      USERS_TABLE = "schoolcloud-demo-users"
+      USERS_TABLE  = "schoolcloud-demo-users"
+      EVENTS_TABLE = "schoolcloud-demo-events"
+      JWT_PARAM    = "/schoolcloud-demo/jwt_secret"
+      REGION       = var.region
+      JWT_SECRET   = "dev-demo-secret"
     }
   }
-}
+} 
 
+# --- Events Lambda ---
 resource "aws_lambda_function" "events" {
   function_name    = "${var.project}-demo-events"
   role             = aws_iam_role.events.arn
   runtime          = "python3.12"
-  handler          = "handler.handler"
-  filename         = "${path.module}/../../apps/api/events/events.zip"
-  source_code_hash = filebase64sha256("${path.module}/../../apps/api/events/events.zip")
-
-
-  timeout = 30
+  handler          = "events/handler.handler"
+  filename         = "${path.module}/../../apps/events.zip"
+  source_code_hash = filebase64sha256("${path.module}/../../apps/events.zip")
+  timeout          = 30
 
   environment {
     variables = {
-      LOG_LEVEL = "info"
+      USERS_TABLE  = "schoolcloud-demo-users"
+      EVENTS_TABLE = "schoolcloud-demo-events"
+      JWT_PARAM    = "/schoolcloud-demo/jwt_secret"
+      JWT_SECRET   = "dev-demo-secret"
+      REGION       = var.region
     }
   }
-}
+} 

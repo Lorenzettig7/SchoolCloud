@@ -12,9 +12,9 @@ resource "aws_iam_role" "auth" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
-      Effect = "Allow",
+      Effect    = "Allow",
       Principal = { Service = "lambda.amazonaws.com" },
-      Action = "sts:AssumeRole"
+      Action    = "sts:AssumeRole"
     }]
   })
 
@@ -39,11 +39,11 @@ resource "aws_iam_role_policy" "auth_ddb_ssm" {
     Version = "2012-10-17",
     Statement = [
       {
-        Effect: "Allow",
-        Action: [
-          "dynamodb:GetItem","dynamodb:PutItem","dynamodb:UpdateItem","dynamodb:Query","dynamodb:Scan"
+        Effect : "Allow",
+        Action : [
+          "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:Query", "dynamodb:Scan"
         ],
-        Resource: [
+        Resource : [
           "arn:${data.aws_partition.this.partition}:dynamodb:${var.region}:${data.aws_caller_identity.this.account_id}:table/schoolcloud-demo-users",
           "arn:${data.aws_partition.this.partition}:dynamodb:${var.region}:${data.aws_caller_identity.this.account_id}:table/schoolcloud-demo-users/index/*",
           "arn:${data.aws_partition.this.partition}:dynamodb:${var.region}:${data.aws_caller_identity.this.account_id}:table/schoolcloud-demo-events",
@@ -51,9 +51,9 @@ resource "aws_iam_role_policy" "auth_ddb_ssm" {
         ]
       },
       {
-        Effect: "Allow",
-        Action: ["ssm:GetParameter","ssm:GetParameters","ssm:GetParameterHistory"],
-        Resource: "arn:${data.aws_partition.this.partition}:ssm:${var.region}:${data.aws_caller_identity.this.account_id}:parameter/schoolcloud-demo/*"
+        Effect : "Allow",
+        Action : ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParameterHistory"],
+        Resource : "arn:${data.aws_partition.this.partition}:ssm:${var.region}:${data.aws_caller_identity.this.account_id}:parameter/schoolcloud-demo/*"
       }
     ]
   })
@@ -74,10 +74,11 @@ resource "aws_lambda_function" "auth" {
 
   environment {
     variables = {
-      USERS_TABLE = "schoolcloud-demo-users"
+      USERS_TABLE  = "schoolcloud-demo-users"
       EVENTS_TABLE = "schoolcloud-demo-events"
-      JWT_PARAM   = "/schoolcloud-demo/jwt_secret"
-      REGION      = var.region
+      JWT_PARAM    = "/schoolcloud-demo/jwt_secret"
+      JWT_SECRET   = "dev-demo-secret"
+      REGION       = var.region
     }
   }
 
@@ -86,4 +87,4 @@ resource "aws_lambda_function" "auth" {
 
 # Optional outputs for other files to reference
 output "auth_lambda_name" { value = aws_lambda_function.auth.function_name }
-output "auth_lambda_arn"  { value = aws_lambda_function.auth.arn }
+output "auth_lambda_arn" { value = aws_lambda_function.auth.arn }

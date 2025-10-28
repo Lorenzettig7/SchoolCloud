@@ -5,9 +5,11 @@ module "kms" {
 }
 
 module "identity" {
-  source   = "../../modules/identity"
-  project  = var.project
-  repo_sub = var.repo_sub
+  source                   = "../../modules/identity"
+  project                  = var.project
+  repo_sub                 = var.repo_sub
+  region                   = var.region
+  permissions_boundary_arn = var.permissions_boundary_arn
 }
 
 module "portal_bucket" {
@@ -23,7 +25,7 @@ module "demo_identity_api" {
   region                   = var.region
   permissions_boundary_arn = var.permissions_boundary_arn
 
-  auth_lambda_arn         = aws_lambda_function.auth.arn
+  auth_lambda_arn     = aws_lambda_function.auth.arn
   identity_lambda_arn = module.identity.identity_lambda_arn
   events_lambda_arn   = module.identity.events_lambda_arn
 
