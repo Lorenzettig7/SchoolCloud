@@ -1,88 +1,96 @@
 resource "aws_iam_policy" "boundary" {
-  name        = "SchoolCloudBoundary"
-  description = "Permissions boundary for SchoolCloud roles"
-  policy      = jsonencode({
-    "Version": "2012-10-17",
-    "Statement": [
-      {
-        "Sid": "NoPrivilegeEscalation",
-        "Effect": "Deny",
-        "Action": [
-          "iam:CreatePolicyVersion",
-          "iam:SetDefaultPolicyVersion",
-          "iam:PassRole",
-          "iam:AttachRolePolicy",
-          "iam:PutRolePolicy"
-        ],
-        "Resource": "*"
-      },
-      {
-        "Sid": "TagGuardExceptKMS",
-        "Effect": "Deny",
-        "NotAction": [
-          "kms:*"
-        ],
-        "Resource": "*",
-        "Condition": {
-          "StringNotEquals": {
-            "aws:ResourceTag/Project": "schoolcloud"
-          }
-        }
-      },
-      {
-        "Sid": "RestrictKMSExceptAllowedAliases",
-        "Effect": "Deny",
-        "Action": "kms:*",
-        "Resource": "*",
-        "Condition": {
-          "ForAnyValue:StringNotLike": {
-            "kms:ResourceAliases": [
-              "alias/schoolcloud/*",
-              "alias/aws/lambda"
-            ]
-          }
-        }
-      },
-      {
-        "Sid": "AllowSSMParameterRead",
-        "Effect": "Allow",
-        "Action": [
-          "ssm:GetParameter",
-          "ssm:GetParameters",
-          "ssm:GetParameterHistory"
-        ],
-        "Resource": "*"
-      }
+  count  = var.create_boundary ? 1 : 0
+  name   = "SchoolCloudBoundary"
+  path   = "/"
+  policy = data.aws_iam_policy_document.permissions_boundary.json
+}
+  # Build the boundary policy document in HCL (was raw JSON before)
+data "aws_iam_policy_document" "permissions_boundary" {
+  # Deny common IAM privilege-escalation paths
+  statement {
+    sid     = "NoPrivilegeEscalation"
+    effect  = "Deny"
+    actions = [
+      "iam:CreatePolicyVersion",
+      "iam:SetDefaultPolicyVersion",
+      "iam:PassRole",
+      "iam:AttachRolePolicy",
+      "iam:PutRolePolicy",
     ]
-  })
+    resources = ["*"]
+  }
+
+  # Your "TagGuardExceptKMS" JSON (use not_actions + condition in HCL)
+  statement {
+    sid         = "TagGuardExceptKMS"
+    effect      = "Deny"
+    not_actions = ["kms:*"]
+    resources   = ["*"]
+
+    condition {
+      test     = "StringNotEquals"
+      variable = "aws:ResourceTag/Project"
+      values   = ["schoolcloud"]
+    }
+  }
+
+  # Your "RestrictKMSExceptAllowedAliases" JSON
+  statement {
+    sid      = "RestrictKMSExceptAllowedAliases"
+    effect   = "Deny"
+    actions  = ["kms:*"]
+    resources = ["*"]
+
+    # HCL for: "ForAnyValue:StringNotLike": { "kms:ResourceAliases": ["alias/schoolcloud/*","alias/aws/lambda"] }
+    condition {
+      test     = "ForAnyValue:StringNotLike"
+      variable = "kms:ResourceAliases"
+      values   = ["alias/schoolcloud/*", "alias/aws/lambda"]
+    }
+  }
+
+  # Optional: read SSM params
+  statement {
+    sid      = "AllowSSMParameterRead"
+    effect   = "Allow"
+    actions  = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParameterHistory"]
+    resources = ["*"]
+  }
+}
+# --- Trust policy for Lambda execution role
+data "aws_iam_policy_document" "lambda_assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
 }
 
+# --- Identity role
 resource "aws_iam_role" "identity" {
-  name = "${var.project}-demo-identity-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Service = "lambda.amazonaws.com"
-      }
-      Action = "sts:AssumeRole"
-    }]
-  })
+  name               = "${var.project}-demo-identity-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 }
 
+# Basic logging for Identity
+resource "aws_iam_role_policy_attachment" "identity_logs" {
+  role       = aws_iam_role.identity.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+# --- Events role
 resource "aws_iam_role" "events" {
-  name = "${var.project}-demo-events-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Service = "lambda.amazonaws.com"
-      }
-      Action = "sts:AssumeRole"
-    }]
-  })
+  name               = "${var.project}-demo-events-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+  permissions_boundary = var.permissions_boundary_arn
+}
+
+# Basic logging for Events
+resource "aws_iam_role_policy_attachment" "events_logs" {
+  role       = aws_iam_role.events.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 # --- Identity Lambda ---
@@ -96,14 +104,14 @@ resource "aws_lambda_function" "identity" {
   timeout          = 30
 
   environment {
-    variables = {
-      USERS_TABLE  = "schoolcloud-demo-users"
-      EVENTS_TABLE = "schoolcloud-demo-events"
-      JWT_PARAM    = "/schoolcloud-demo/jwt_secret"
-      REGION       = var.region
-      JWT_SECRET   = "dev-demo-secret"
-    }
+   variables = {
+    USERS_TABLE  = "schoolcloud-demo-users"
+    EVENTS_TABLE = "schoolcloud-demo-events"
+    JWT_PARAM    = "/schoolcloud-demo/jwt_secret"
+    REGION       = var.region
+    BUILD_TS     = timestamp()         # <— forces update on each apply
   }
+}
 } 
 
 # --- Events Lambda ---
@@ -118,11 +126,40 @@ resource "aws_lambda_function" "events" {
 
   environment {
     variables = {
-      USERS_TABLE  = "schoolcloud-demo-users"
-      EVENTS_TABLE = "schoolcloud-demo-events"
-      JWT_PARAM    = "/schoolcloud-demo/jwt_secret"
-      JWT_SECRET   = "dev-demo-secret"
-      REGION       = var.region
-    }
+    USERS_TABLE  = "schoolcloud-demo-users"
+    EVENTS_TABLE = "schoolcloud-demo-events"
+    JWT_PARAM    = "/schoolcloud-demo/jwt_secret"
+    REGION       = var.region
+    BUILD_TS     = timestamp()         # <— forces update on each apply
   }
+}
 } 
+# --- Allow SSM Parameter Store reads for JWT secret ---
+resource "aws_iam_policy" "ssm_read" {
+  name   = "${var.project}-ssm-read"
+  path   = "/"
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Sid      = "SSMRead",
+      Effect   = "Allow",
+      Action   = [
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParameterHistory"
+      ],
+      Resource = "*"
+    }]
+  })
+}
+
+# Attach to both Lambda roles (identity + events)
+resource "aws_iam_role_policy_attachment" "identity_ssm_read" {
+  role       = aws_iam_role.identity.name
+  policy_arn = aws_iam_policy.ssm_read.arn
+}
+
+resource "aws_iam_role_policy_attachment" "events_ssm_read" {
+  role       = aws_iam_role.events.name
+  policy_arn = aws_iam_policy.ssm_read.arn
+}

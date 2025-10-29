@@ -2,17 +2,30 @@
 
 data "aws_caller_identity" "this" {}
 data "aws_partition" "this" {}
+# Trust policy for the Lambda execution role
+data "aws_iam_policy_document" "lambda_assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
 
 # -----------------------------
 # IAM role for the Lambda
 # -----------------------------
+
 resource "aws_iam_role" "auth" {
   name               = "${var.project}-demo-auth-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 
-  # <-- this must point to the ARN of SchoolCloudBoundary
-  permissions_boundary = var.permissions_boundary_arn
+  # Use the boundary this module manages:
+  permissions_boundary = aws_iam_policy.permissions_boundary.arn
 }
+
 
 # Basic logging
 resource "aws_iam_role_policy_attachment" "auth_logs" {
@@ -61,8 +74,6 @@ resource "aws_lambda_function" "auth" {
   filename         = "${path.module}/../../apps/auth.zip"
   source_code_hash = filebase64sha256("${path.module}/../../apps/auth.zip")
 
-  # Force AWS-managed key for env encryption
-  kms_key_arn = "arn:aws:kms:us-east-1:${data.aws_caller_identity.this.account_id}:alias/aws/lambda"
 
   timeout = 30
 
@@ -72,8 +83,7 @@ resource "aws_lambda_function" "auth" {
       USERS_TABLE  = "schoolcloud-demo-users"
       EVENTS_TABLE = "schoolcloud-demo-events"
       JWT_PARAM    = "/schoolcloud-demo/jwt_secret"
-      JWT_SECRET   = "dev-demo-secret"
-      BUILD_TS     = timestamp()   # forces config refresh & re-encryption
+      BUILD_TS     = timestamp() # forces config refresh & re-encryption
     }
   }
 }

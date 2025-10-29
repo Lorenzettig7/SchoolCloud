@@ -9,7 +9,8 @@ module "identity" {
   project                  = var.project
   repo_sub                 = var.repo_sub
   region                   = var.region
-  permissions_boundary_arn = var.permissions_boundary_arn
+  permissions_boundary_arn = "arn:aws:iam::713881788173:policy/SchoolCloudBoundary"
+  create_boundary          = false
 }
 
 module "portal_bucket" {

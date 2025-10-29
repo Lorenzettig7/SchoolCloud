@@ -1,47 +1,46 @@
-# auth/handler.py
-import json, base64
+import json, os, time
+import boto3
+import jwt  # PyJWT
 
-def _json(body, code=200):
-    return {
-        "statusCode": code,
-        "headers": {"Content-Type": "application/json"},
-        "body": json.dumps(body),
+def _get_secret():
+    ssm = boto3.client("ssm", region_name=os.environ["REGION"])
+    param_name = os.environ["JWT_PARAM"]  # e.g., /schoolcloud-demo/jwt_secret
+    return ssm.get_parameter(Name=param_name, WithDecryption=True)["Parameter"]["Value"]
+
+def _ok(body: dict, status=200, headers=None):
+    base = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+        "Access-Control-Allow-Headers": "content-type,authorization",
     }
+    if headers: base.update(headers)
+    return {"statusCode": status, "headers": base, "body": json.dumps(body)}
 
 def handler(event, context):
-    # 1) Normalize HTTP method
-    method = (
-        event.get("requestContext", {}).get("http", {}).get("method")
-        or event.get("httpMethod")
-        or "GET"
-    ).upper()
+    method = event.get("requestContext", {}).get("http", {}).get("method", "GET")
+    path   = event.get("rawPath", "/")
+    if method == "OPTIONS":  # CORS preflight
+        return _ok({"ok": True})
 
-    # 2) Normalize path (strip stage prefix if present)
-    path = event.get("rawPath") or event.get("path") or "/"
-    stage = event.get("requestContext", {}).get("stage")
-    if stage and path.startswith(f"/{stage}/"):
-        path = path[len(stage) + 1:]  # remove leading "/prod"
-
-    # 3) Parse JSON body safely
-    body_str = event.get("body") or ""
-    if event.get("isBase64Encoded"):
-        body_str = base64.b64decode(body_str).decode("utf-8")
-    try:
-        body = json.loads(body_str) if body_str else {}
-    except json.JSONDecodeError:
-        return _json({"error": "invalid JSON body"}, 400)
-
-    # 4) Route
-    if method == "POST" and path == "/auth/login":
-        # TODO: your real login logic
+    if path == "/auth/login" and method == "POST":
+        body = json.loads(event.get("body") or "{}")
         username = body.get("username")
         password = body.get("password")
-        if username == "demo" and password == "demo":
-            return _json({"token": "fake-jwt-demo"})
-        return _json({"error": "invalid credentials"}, 401)
 
-    if method == "GET" and path == "/auth/health":
-        return _json({"status": "ok"})
+        # DEMO auth check (replace with real user lookup)
+        if not (username == "demo" and password == "demo"):
+            return _ok({"error": "invalid_credentials"}, status=401)
 
-    return _json({"error": f"unhandled path: {path}"}, 404)
+        secret = _get_secret()
+        now = int(time.time())
+        claims = {
+            "sub": username,
+            "iat": now,
+            "exp": now + 3600,     # 1 hour
+            "scope": "user",
+        }
+        token = jwt.encode(claims, secret, algorithm="HS256")
+        return _ok({"token": token})
 
+    return _ok({"error": "not_found"}, status=404)

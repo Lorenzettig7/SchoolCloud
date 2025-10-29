@@ -16,3 +16,7 @@ variable "permissions_boundary_arn" {
   description = "IAM Permissions Boundary ARN (or null)"
   default     = null
 }
+variable "create_boundary" {
+  type    = bool
+  default = false
+}
