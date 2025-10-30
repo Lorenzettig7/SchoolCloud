@@ -1,4 +1,4 @@
-name: Deploy Portal
+name: Deploy
 
 on:
   push:
