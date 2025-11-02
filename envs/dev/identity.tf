@@ -9,11 +9,3 @@ resource "aws_lambda_function" "identity" {
 }
 
 
-resource "aws_lambda_permission" "apigw_identity" {
-  statement_id  = "AllowAPIGatewayInvokeIdentity"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.identity.function_name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${module.demo_identity_api.execution_arn}/*/*"
-}
-

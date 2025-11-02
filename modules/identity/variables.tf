@@ -20,3 +20,8 @@ variable "create_boundary" {
   type    = bool
   default = false
 }
+
+variable "build_id" {
+  type    = string
+  default = ""
+}
