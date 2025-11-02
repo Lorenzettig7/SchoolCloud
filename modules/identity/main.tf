@@ -104,15 +104,15 @@ resource "aws_lambda_function" "identity" {
   timeout          = 30
 
   environment {
-   variables = {
-    USERS_TABLE  = "schoolcloud-demo-users"
-    EVENTS_TABLE = "schoolcloud-demo-events"
-    JWT_PARAM    = "/schoolcloud-demo/jwt_secret"
-    REGION       = var.region
-    BUILD_TS     = timestamp()         # <— forces update on each apply
+    variables = {
+      USERS_TABLE  = "schoolcloud-demo-users"
+      EVENTS_TABLE = "schoolcloud-demo-events"
+      JWT_PARAM    = "/schoolcloud-demo/jwt_secret"
+      REGION       = var.region
+      BUILD_ID     = var.build_id
+    }
   }
 }
-} 
 
 # --- Events Lambda ---
 resource "aws_lambda_function" "events" {
@@ -130,7 +130,7 @@ resource "aws_lambda_function" "events" {
     EVENTS_TABLE = "schoolcloud-demo-events"
     JWT_PARAM    = "/schoolcloud-demo/jwt_secret"
     REGION       = var.region
-    BUILD_TS     = timestamp()         # <— forces update on each apply
+    BUILD_ID     = var.build_id 
   }
 }
 } 
@@ -162,4 +162,41 @@ resource "aws_iam_role_policy_attachment" "identity_ssm_read" {
 resource "aws_iam_role_policy_attachment" "events_ssm_read" {
   role       = aws_iam_role.events.name
   policy_arn = aws_iam_policy.ssm_read.arn
+}
+data "aws_caller_identity" "this" {}
+data "aws_partition" "this" {}
+# … if not already present
+
+resource "aws_iam_policy" "identity_events_ddb_ssm" {
+  name = "${var.project}-identity-events-ddb-ssm"
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect   = "Allow",
+        Action   = ["dynamodb:GetItem","dynamodb:PutItem","dynamodb:UpdateItem","dynamodb:Query","dynamodb:Scan"],
+        Resource = [
+          "arn:${data.aws_partition.this.partition}:dynamodb:${var.region}:${data.aws_caller_identity.this.account_id}:table/schoolcloud-demo-users",
+          "arn:${data.aws_partition.this.partition}:dynamodb:${var.region}:${data.aws_caller_identity.this.account_id}:table/schoolcloud-demo-users/index/*",
+          "arn:${data.aws_partition.this.partition}:dynamodb:${var.region}:${data.aws_caller_identity.this.account_id}:table/schoolcloud-demo-events",
+          "arn:${data.aws_partition.this.partition}:dynamodb:${var.region}:${data.aws_caller_identity.this.account_id}:table/schoolcloud-demo-events/index/*"
+        ]
+      },
+      {
+        Effect   = "Allow",
+        Action   = ["ssm:GetParameter","ssm:GetParameters","ssm:GetParameterHistory"],
+        Resource = "arn:${data.aws_partition.this.partition}:ssm:${var.region}:${data.aws_caller_identity.this.account_id}:parameter/schoolcloud-demo/*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "identity_ddb_ssm" {
+  role       = aws_iam_role.identity.name
+  policy_arn = aws_iam_policy.identity_events_ddb_ssm.arn
+}
+
+resource "aws_iam_role_policy_attachment" "events_ddb_ssm" {
+  role       = aws_iam_role.events.name
+  policy_arn = aws_iam_policy.identity_events_ddb_ssm.arn
 }
