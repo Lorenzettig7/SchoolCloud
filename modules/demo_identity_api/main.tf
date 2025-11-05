@@ -12,16 +12,16 @@ resource "aws_apigatewayv2_api" "demo" {
 
   cors_configuration {
     allow_origins = [
-      "https://portal.secureschoolcloud.org",
-      "http://localhost:5173",
+      "http://localhost:3000",
       "http://localhost:4173",
-      "http://127.0.0.1:4173",
+      "http://localhost:5173",
+      "https://portal.secureschoolcloud.org"
     ]
-    allow_methods     = ["GET", "POST", "OPTIONS"]
-    allow_headers     = ["authorization", "content-type"]
-    allow_credentials = false
-    max_age           = 86400
+    allow_methods = ["GET","POST","OPTIONS"]
+    allow_headers = ["authorization","content-type"]
+    max_age       = 86400
   }
+}
 
   tags = {
     Project = var.project

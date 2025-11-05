@@ -1,6 +1,6 @@
 resource "aws_lambda_function" "identity" {
   function_name = "${var.project}-demo-identity"
-  role          = aws_iam_role.auth.arn
+  role          = aws_iam_role.identity.arn
   runtime       = "python3.12"
   handler       = "identity/handler.handler"
 

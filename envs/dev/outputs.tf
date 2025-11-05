@@ -1,21 +1,26 @@
+# ===== API base URL from the stage you defined in main.tf
+output "api_base_url" {
+  # If your stage name is "prod" in aws_apigatewayv2_stage.demo, this is the full invoke URL
+  value       = aws_apigatewayv2_stage.demo.invoke_url
+  description = "HTTP API invoke URL"
+}
+
+# ===== Portal bucket info (lookup by name instead of module reference)
+# Adjust the bucket name if yours differs
+data "aws_s3_bucket" "portal" {
+  bucket = "${var.project}-portal-us-east-1"
+}
+
 output "portal_bucket_arn" {
-  value = module.portal_bucket.bucket_arn
+  value       = data.aws_s3_bucket.portal.arn
+  description = "Portal bucket ARN"
 }
 
 output "portal_bucket_domain" {
-  value = module.portal_bucket.bucket_regional_domain_name
+  value       = data.aws_s3_bucket.portal.bucket_regional_domain_name
+  description = "Portal bucket regional domain"
 }
 
-# Your API base URL already exported from the module we fixed
-output "api_base_url" {
-  value       = "${module.demo_identity_api.demo_api_endpoint}/prod"
-  description = "Fully qualified base URL for the demo API including stage"
-}
+# ===== DynamoDB tables (lookup by name instead of undeclared resources)
+# Adjust names if your tables differ
 
-output "users_table" {
-  value = aws_dynamodb_table.users.name
-}
-
-output "events_table" {
-  value = aws_dynamodb_table.events.name
-}

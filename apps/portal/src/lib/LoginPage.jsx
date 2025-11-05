@@ -28,16 +28,20 @@ export default function LoginPage() {
 
 function handleCognitoLogin() {
   const domain = "https://schoolcloud-dev.auth.us-east-1.amazoncognito.com";
-  const clientId = "4vljm45is9ejulo4fhoo5a1bp"; // your portal.secureschoolcloud.org client
-  const redirectUri = "http://localhost:3000/callback";
-  const responseType = "token"; // implicit flow
+  const clientId = "4vljm45is9ejulo4fhoo5a1bp";
+  const redirectUri = window.location.origin + "/callback";
+  const responseType = "token id_token"; // get both
   const scope = encodeURIComponent("openid email profile");
 
-  const loginUrl = `${domain}/oauth2/authorize?response_type=${responseType}&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}`;
+  const loginUrl =
+    `${domain}/oauth2/authorize` +
+    `?response_type=${encodeURIComponent(responseType)}` +
+    `&client_id=${clientId}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&scope=${scope}`;
 
   window.location.href = loginUrl;
 }
-
 
 
   return (
@@ -72,16 +76,3 @@ function handleCognitoLogin() {
   );
 }
 
-// Add if you don’t already have this helper:
-async function apiFetch(path, options = {}) {
-  const res = await fetch(path, {
-    method: options.method || "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-}

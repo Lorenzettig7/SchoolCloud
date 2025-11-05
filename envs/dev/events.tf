@@ -1,6 +1,6 @@
 resource "aws_lambda_function" "events" {
   function_name = "${var.project}-demo-events"
-  role          = aws_iam_role.auth.arn
+  role          = aws_iam_role.events.arn
   runtime       = "python3.12"
   handler       = "events/handler.handler"
 
