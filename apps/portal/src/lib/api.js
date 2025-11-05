@@ -7,21 +7,18 @@ if (!API) {
   );
 }
 
-export async function apiFetch(path, { method = "GET", token, body } = {}) {
-  const res = await fetch(`${API}${path}`, {
-    method,
+export async function apiFetch(path, options = {}) {
+  const token = localStorage.getItem("access_token"); // Or use id_token if needed
+
+  const res = await fetch(path, {
+    method: options.method || "GET",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      Authorization: token ? `Bearer ${token}` : undefined,
     },
-    body: body ? JSON.stringify(body) : undefined,
+    body: options.body ? JSON.stringify(options.body) : undefined,
   });
-  if (!res.ok) {
-    let detail = "";
-    try {
-      detail = await res.text();
-    } catch {}
-    throw new Error(`HTTP ${res.status}${detail ? ` – ${detail}` : ""}`);
-  }
+
+  if (!res.ok) throw new Error(await res.text());
   return res.json();
 }

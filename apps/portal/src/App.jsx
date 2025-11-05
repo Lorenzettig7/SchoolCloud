@@ -1,7 +1,12 @@
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import SchoolCloudPortal from "./SchoolCloudPortal.jsx";
-import LoginPage from "./lib/LoginPage.jsx"; // you’ll create this next
+import LoginPage from "./lib/LoginPage.jsx"; 
+import CallbackPage from './CallbackPage.jsx';
+
+
+<Route path="/callback" element={<CallbackPage />} />
+
 
 function ErrorBoundary({ children }) {
   const [err, setErr] = React.useState(null);
@@ -39,3 +44,4 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+

@@ -12,7 +12,10 @@ export default function SchoolCloudPortal() {
   const [ciRuns, setCiRuns] = React.useState([]);
   const [policyView, setPolicyView] = React.useState("boundary");
 
-  const [token, setToken] = React.useState(localStorage.getItem("demo_token") || null);
+  const [token, setToken] = React.useState(
+  localStorage.getItem("access_token") || localStorage.getItem("demo_token") || null
+);
+
 
   // Forms
   const [signupForm, setSignupForm] = React.useState({
@@ -54,7 +57,7 @@ export default function SchoolCloudPortal() {
     e.preventDefault();
     addOptimistic("Creating account…");
     const r = await apiFetch("/auth/signup", { method: "POST", body: signupForm });
-    localStorage.setItem("demo_token", r.token);
+    localStorage.setItem("access_token", r.token);
     setToken(r.token);
   }
 
