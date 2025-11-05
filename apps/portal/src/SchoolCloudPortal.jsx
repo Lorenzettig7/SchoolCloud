@@ -13,7 +13,7 @@ export default function SchoolCloudPortal() {
   const [policyView, setPolicyView] = React.useState("boundary");
 
   const [token, setToken] = React.useState(
-  localStorage.getItem("access_token") || localStorage.getItem("demo_token") || null
+  localStorage.getItem("access_token") || localStorage.getItem("id_token") || null
 );
 
 
@@ -65,7 +65,7 @@ export default function SchoolCloudPortal() {
     e.preventDefault();
     addOptimistic("Logging in…");
     const r = await apiFetch("/auth/login", { method: "POST", body: loginForm });
-    localStorage.setItem("demo_token", r.token);
+    localStorage.setItem("id_token", r.token);
     setToken(r.token);
   }
 

@@ -1,59 +1,57 @@
+// apps/portal/src/CallbackPage.jsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-const CallbackPage = () => {
+export default function CallbackPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get("code");
+    try {
+      const url = new URL(window.location.href);
 
-    if (!code) {
-      console.error("Missing auth code in URL");
-      navigate("/login");
-      return;
-    }
+      // Implicit flow returns tokens in the URL hash: #id_token=...&access_token=...
+      const hash = url.hash.startsWith("#") ? url.hash.substring(1) : "";
+      const hashParams = new URLSearchParams(hash);
 
-    async function fetchTokens() {
-      const clientId = "4cddgb64bfu2au7ce5t9fqgtjp";
-      const redirectUri = "http://localhost:3000/callback";
-      const cognitoDomain = "https://schoolcloud-dev.auth.us-east-1.amazoncognito.com";
+      const idToken = hashParams.get("id_token");
+      const accessToken = hashParams.get("access_token");
+      const err = hashParams.get("error_description") || hashParams.get("error");
 
-      const body = new URLSearchParams({
-        grant_type: "authorization_code",
-        client_id: clientId,
-        code,
-        redirect_uri: redirectUri,
-      });
-
-      try {
-        const res = await fetch(`${cognitoDomain}/oauth2/token`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: body.toString(),
-        });
-
-        if (!res.ok) throw new Error("Token exchange failed");
-
-        const tokens = await res.json();
-        console.log("Tokens:", tokens);
-
-        localStorage.setItem("id_token", tokens.id_token);
-        localStorage.setItem("access_token", tokens.access_token);
-
-        navigate("/");
-      } catch (err) {
-        console.error(err);
+      if (err) {
+        console.error("Cognito error:", err);
         navigate("/login");
+        return;
       }
-    }
 
-    fetchTokens();
+      if (idToken) {
+        localStorage.setItem("id_token", idToken);
+        if (accessToken) localStorage.setItem("access_token", accessToken);
+
+        // Clean the URL (remove the hash so refreshes don't re-run this)
+        window.history.replaceState(null, "", url.pathname + url.search);
+
+        // Go to your authenticated area
+        navigate("/portal");
+        return;
+      }
+
+      // If you see a "code" here, your app client is using Auth Code + PKCE.
+      // This page is set up for Implicit flow; switch to PKCE handling if desired.
+      const code = new URLSearchParams(url.search).get("code");
+      if (code) {
+        console.error(
+          "Received authorization code but this callback is using the implicit flow. Enable token flow or implement PKCE."
+        );
+      } else {
+        console.error("No tokens found on callback URL.");
+      }
+
+      navigate("/login");
+    } catch (e) {
+      console.error("Callback processing error:", e);
+      navigate("/login");
+    }
   }, [navigate]);
 
-  return <p>Processing login...</p>;
-};
-
-export default CallbackPage;
+  return <p>Processing login…</p>;
+}

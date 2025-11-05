@@ -8,17 +8,21 @@ if (!API) {
 }
 
 export async function apiFetch(path, options = {}) {
-  const token = localStorage.getItem("access_token"); // Or use id_token if needed
+  const token = localStorage.getItem("id_token");
 
-  const res = await fetch(path, {
-    method: options.method || "GET",
+  const res = await fetch(`${import.meta.env.VITE_API_BASE}${path}`, {
+    ...options,
     headers: {
       "Content-Type": "application/json",
-      Authorization: token ? `Bearer ${token}` : undefined,
+      Authorization: token ? `Bearer ${token}` : "",
+      ...options.headers,
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
 
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    throw new Error(await res.text());
+  }
   return res.json();
 }
+

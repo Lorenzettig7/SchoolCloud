@@ -15,7 +15,7 @@ export default function LoginPage() {
     try {
       const r = await apiFetch("/auth/login", {
         method: "POST",
-        body: { email, password },
+        body: { username: email, password },
       });
 
       localStorage.setItem("demo_token", r.token);
@@ -26,17 +26,19 @@ export default function LoginPage() {
     }
   }
 
-  function handleCognitoLogin(e) {
-    e.preventDefault();
-    const clientId = "4cddgb64bfu2au7ce5t9fqgtjp";
-    const redirectUri = encodeURIComponent("http://localhost:3000/callback");
-    const responseType = "code";
-    const scope = encodeURIComponent("openid profile email");
-    const cognitoDomain = "https://schoolcloud-dev.auth.us-east-1.amazoncognito.com";
+function handleCognitoLogin() {
+  const domain = "https://schoolcloud-dev.auth.us-east-1.amazoncognito.com";
+  const clientId = "4vljm45is9ejulo4fhoo5a1bp"; // your portal.secureschoolcloud.org client
+  const redirectUri = "http://localhost:3000/callback";
+  const responseType = "token"; // implicit flow
+  const scope = encodeURIComponent("openid email profile");
 
-    const loginUrl = `${cognitoDomain}/oauth2/authorize?response_type=${responseType}&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
-    window.location.href = loginUrl;
-  }
+  const loginUrl = `${domain}/oauth2/authorize?response_type=${responseType}&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}`;
+
+  window.location.href = loginUrl;
+}
+
+
 
   return (
     <div style={{ margin: "2rem auto", maxWidth: 400 }}>
