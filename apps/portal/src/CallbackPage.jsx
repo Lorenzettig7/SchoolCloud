@@ -1,4 +1,3 @@
-// apps/portal/src/CallbackPage.jsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -25,10 +24,11 @@ export default function CallbackPage() {
         localStorage.setItem("id_token", idToken);
         if (accessToken) localStorage.setItem("access_token", accessToken);
 
-        // clean the URL so refresh doesn't re-trigger callback logic
-        window.history.replaceState(null, "", url.pathname + url.search);
+        // scrub the hash so refresh is safe
+        window.history.replaceState(null, "", url.pathname);
 
-        navigate("/portal"); // or "/"
+        console.log("✅ Cognito login OK; tokens saved.");
+        navigate("/"); // ⬅️ send to a route that actually exists
         return;
       }
 

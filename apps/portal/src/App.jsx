@@ -5,7 +5,12 @@ import LoginPage from "./lib/LoginPage.jsx";
 import CallbackPage from './CallbackPage.jsx';
 
 
-<Route path="/callback" element={<CallbackPage />} />
+<Routes>
+  <Route path="/" element={<SchoolCloudPortal />} />
+  <Route path="/login" element={<LoginPage />} />
+  <Route path="/callback" element={<CallbackPage />} />  {/* ✅ Add this line */}
+</Routes>
+
 
 
 function ErrorBoundary({ children }) {
@@ -39,9 +44,9 @@ export default function App() {
         <Routes>
           <Route path="/" element={<SchoolCloudPortal />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/callback" element={<CallbackPage />} /> {/* add this */}
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>
   );
 }
-
